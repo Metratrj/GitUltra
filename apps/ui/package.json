@@ -1,5 +1,5 @@
 {
-	"name": "ui",
+	"name": "@gitultra/ui",
 	"private": true,
 	"version": "0.0.1",
 	"type": "module",
@@ -21,13 +21,8 @@
 		"typescript": "^5.0.0",
 		"vite": "^6.0.0"
 	},
-	"pnpm": {
-		"onlyBuiltDependencies": [
-			"esbuild"
-		]
-	},
 	"dependencies": {
-		"@sentry/sveltekit": "9",
+		"@sentry/sveltekit": "^9.2.0",
 		"@tauri-apps/api": "^2.2.0",
 		"@tauri-apps/plugin-opener": "^2.2.5",
 		"flatbuffers": "^25.2.10"

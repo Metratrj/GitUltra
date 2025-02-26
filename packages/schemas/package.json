@@ -1,0 +1,15 @@
+{
+  "name": "@gitultra/schemas",
+  "version": "0.1.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+        "generate": "bin\\flatc.exe --ts -o ts flatbuffers/git.fbs && bin\\flatc.exe --rust -o src flatbuffers/git.fbs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "flatbuffers": "^25.2.10"
+  }
+}

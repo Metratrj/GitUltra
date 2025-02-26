@@ -1,0 +1,10 @@
+namespace gitultra.git;
+
+table Commit {
+	oid: string(required);
+	message: string;
+	author: string;
+	timestamp: long;
+}
+
+root_type Commit;
