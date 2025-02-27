@@ -4,12 +4,16 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-        "generate": "bin\\flatc.exe --ts -o ts flatbuffers/git.fbs && bin\\flatc.exe --rust -o src flatbuffers/git.fbs"
+    "generate": "bin\\flatc.exe --ts -o ts flatbuffers/git.fbs && bin\\flatc.exe --rust -o src flatbuffers/git.fbs"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "flatbuffers": "^25.2.10"
+    "flatbuffers": "^25.2.10",
+    "typescript": "^5.7.3"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.3.0"
   }
 }
