@@ -25,6 +25,7 @@
 		"@sentry/sveltekit": "^9.2.0",
 		"@tauri-apps/api": "^2.2.0",
 		"@tauri-apps/plugin-opener": "^2.2.5",
-		"flatbuffers": "^25.2.10"
+		"flatbuffers": "^25.2.10",
+		"@gitultra/schemas": "workspace:*"
 	}
 }

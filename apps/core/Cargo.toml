@@ -26,3 +26,4 @@ tauri-plugin-log = "2.0.0-rc"
 specta = "=2.0.0-rc.22"
 tauri-specta = { version = "=2.0.0-rc.21", features = ["javascript", "typescript", "derive"] }
 specta-typescript = "0.0.9"
+gitultra-schemas = { path = "../../packages/schemas"}
