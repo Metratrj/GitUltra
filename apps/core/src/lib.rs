@@ -19,7 +19,7 @@ pub fn run() {
 
     #[cfg(debug_assertions)]
     builder
-        .export(Typescript::default(), "../../packages/schemas/ts/bindings.ts")
+        .export(Typescript::default(), "../../packages/schemas/ts/gitultra/bindings.ts")
         .expect("Failed to export typescript bindings");
 
     tauri::Builder::default()

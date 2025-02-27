@@ -1,5 +1,5 @@
 [workspace]
-members = [ "apps/core", "packages/schemas"]
+members = [ "apps/core", "packages/core-lib", "packages/schemas"]
 exclude = ["apps/desktop"]
 resolver = "2"
 

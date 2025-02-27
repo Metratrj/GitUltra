@@ -1,5 +1,7 @@
 <script lang="ts">
     import {invoke} from "@tauri-apps/api/core";
+    import {Commit} from "@gitultra/schemas/dist/gitultra/git";
+
     let name = $state("");
     let greetMsg = $state("");
 
