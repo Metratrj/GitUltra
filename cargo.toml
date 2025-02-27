@@ -1,5 +1,6 @@
 [workspace]
 members = [ "apps/core", "packages/schemas"]
+exclude = ["apps/desktop"]
 resolver = "2"
 
 [workspace.package]
