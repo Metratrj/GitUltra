@@ -15,12 +15,12 @@ fn greet(name: &str) -> String {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let mut builder = Builder::<tauri::Wry>::new().commands(collect_commands![greet,]);
+    let builder = Builder::<tauri::Wry>::new().commands(collect_commands![greet,]);
 
-    #[cfg(debug_assertions)]
-    builder
-        .export(Typescript::default(), "../../packages/schemas/ts/gitultra/bindings.ts")
-        .expect("Failed to export typescript bindings");
+    //#[cfg(debug_assertions)]
+    //builder
+    //    .export(Typescript::default(), "../../packages/schemas/ts/gitultra/bindings.ts")
+    //    .expect("Failed to export typescript bindings");
 
     tauri::Builder::default()
         .invoke_handler(builder.invoke_handler())
