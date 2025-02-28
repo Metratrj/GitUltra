@@ -6,8 +6,10 @@ version = 4
 name = "GitUltra"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "gitultra-schemas",
  "log",
+ "rand 0.8.5",
  "serde",
  "serde_json",
  "specta",
@@ -568,7 +570,9 @@ dependencies = [
 name = "core-lib"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "git2",
+ "rand 0.8.5",
 ]
 
 [[package]]
@@ -1272,7 +1276,9 @@ dependencies = [
 name = "gitultra-schemas"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "flatbuffers",
+ "rand 0.8.5",
 ]
 
 [[package]]

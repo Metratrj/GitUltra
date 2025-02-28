@@ -1,6 +1,5 @@
 [workspace]
 members = [ "apps/core", "packages/core-lib", "packages/schemas"]
-exclude = ["apps/desktop"]
 resolver = "2"
 
 [workspace.package]
@@ -23,3 +22,8 @@ lto           = true     # Enables link to optimizations
 opt-level     = "s"      # Optimize for binary size
 panic         = "unwind" # Sadly we need unwind to avoid unexpected crashes on third party crates
 strip         = true     # Remove debug symbols
+
+
+[workspace.dependencies]
+base64 = "0.22.1"
+rand="0.8.5"

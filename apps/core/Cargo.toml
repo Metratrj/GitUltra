@@ -1,12 +1,11 @@
 [package]
 name = "GitUltra"
 version = "0.1.0"
-description = "A Tauri App"
+description = "A git client"
 authors = ["Metratrj"]
 license = "https://github.com/metratrj/GitUltra"
 repository = ""
 edition = "2021"
-rust-version = "1.77.2"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -27,3 +26,5 @@ specta = "=2.0.0-rc.22"
 tauri-specta = { version = "=2.0.0-rc.21", features = ["javascript", "typescript", "derive"] }
 specta-typescript = "0.0.9"
 gitultra-schemas = { path = "../../packages/schemas"}
+base64.workspace = true
+rand.workspace = true
