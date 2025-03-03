@@ -3,7 +3,7 @@ use std::process::Command;
 fn main() {
     println!("cargo:rerun-if-changed=flatbuffers/git.fbs");
 
-    let flatc_path = "bin/flatc.exe"; // Path to the local flatc binary
+    let flatc_path = "bin/flatc"; // Path to the local flatc binary
 
     let status = Command::new(flatc_path)
         .args(&["--rust", "-o", "src", "flatbuffers/git.fbs"])
