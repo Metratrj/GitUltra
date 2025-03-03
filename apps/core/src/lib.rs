@@ -23,6 +23,7 @@ pub fn run() {
     //    .expect("Failed to export typescript bindings");
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .invoke_handler(builder.invoke_handler())
         //.invoke_handler(tauri::generate_handler![greet])

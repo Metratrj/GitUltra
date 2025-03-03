@@ -29,3 +29,4 @@ gitultra-schemas = { path = "../../packages/schemas"}
 base64.workspace = true
 rand.workspace = true
 tauri-plugin-clipboard-manager = "2"
+tauri-plugin-opener = "2"
