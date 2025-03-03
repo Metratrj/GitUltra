@@ -28,3 +28,4 @@ specta-typescript = "0.0.9"
 gitultra-schemas = { path = "../../packages/schemas"}
 base64.workspace = true
 rand.workspace = true
+tauri-plugin-clipboard-manager = "2"
