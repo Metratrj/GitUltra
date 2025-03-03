@@ -9,6 +9,7 @@
 		"core:default",
 		"opener:default",
 		"clipboard-manager:default",
-		"cli:default"
+		"cli:default",
+		"dialog:default"
 	]
 }

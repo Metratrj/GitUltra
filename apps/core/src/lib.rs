@@ -26,6 +26,7 @@ pub fn run() {
         .plugin(tauri_plugin_cli::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+		.plugin(tauri_plugin_dialog::init())
         .invoke_handler(builder.invoke_handler())
         //.invoke_handler(tauri::generate_handler![greet])
         .setup(move |app| {
