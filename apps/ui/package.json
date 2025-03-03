@@ -57,6 +57,7 @@
 		"@gitultra/schemas": "workspace:*",
 		"@sentry/sveltekit": "^9.3.0",
 		"@tauri-apps/api": "2.2.0",
+		"@tauri-apps/plugin-cli": "^2.2.0",
 		"@tauri-apps/plugin-clipboard-manager": "^2.2.1",
 		"@tauri-apps/plugin-opener": "^2.2.6",
 		"flatbuffers": "^25.2.10"
