@@ -123,6 +123,5 @@
 			</DropdownMenu.Root>
 		</div>
 	</header>
+	{@render children()}
 </div>
-
-{@render children()}
