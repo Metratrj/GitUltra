@@ -31,6 +31,7 @@ rand.workspace = true
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
+openssl-sys = { version = "0.9.106", features = ["vendored"] }
 
 [target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
 tauri-plugin-cli = "2.2.0"
