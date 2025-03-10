@@ -26,12 +26,15 @@ specta = "=2.0.0-rc.22"
 tauri-specta = { version = "=2.0.0-rc.21", features = ["javascript", "typescript", "derive"] }
 specta-typescript = "0.0.9"
 gitultra-schemas = { path = "../../packages/schemas"}
+core-lib = { path = "../../packages/core-lib"}
 base64.workspace = true
 rand.workspace = true
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
 openssl-sys = { version = "0.9.106", features = ["vendored"] }
+tauri-plugin-store = "2"
 
-[target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-cli = "2.2.0"
+tauri-plugin-global-shortcut = "2"

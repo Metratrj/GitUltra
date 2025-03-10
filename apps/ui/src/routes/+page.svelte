@@ -4,6 +4,8 @@
 	import { commands } from "@gitultra/schemas/ts/gitultra/bindings";
 	import { Button } from "@/components/ui/button";
 
+	import { open } from "@tauri-apps/plugin-dialog";
+
 	let name = $state("");
 	let greetMsg = $state("");
 	let greet2Msg = $state("");
@@ -16,6 +18,20 @@
 	async function greet2(event: Event) {
 		event.preventDefault();
 		greet2Msg = await commands.greet(name);
+	}
+
+	async function loadRepo() {
+		const dir = await open({
+			multiple: false,
+			directory: true,
+		});
+
+		console.log(dir);
+
+
+		if (dir) {
+			await commands.openRepoDirectory(dir);
+		}
 	}
 </script>
 
@@ -33,4 +49,6 @@
 		<Button type="submit">Greet</Button>
 	</form>
 	<p>{greet2Msg}</p>
+
+	<Button on:click={loadRepo}>Load Repo</Button>
 </main>

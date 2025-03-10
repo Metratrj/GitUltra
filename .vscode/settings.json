@@ -16,4 +16,6 @@
     "src/**/*.css"
 ],
 "npm.packageManager": "pnpm",
+"editor.fontFamily": "'Mononoki Nerd Font'",
+"terminal.integrated.fontFamily": "'Mononoki Nerd Font'",
 }

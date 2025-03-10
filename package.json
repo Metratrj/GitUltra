@@ -15,7 +15,10 @@
     "onlyBuiltDependencies": [
       "@sentry/cli",
       "esbuild"
-    ]
+    ],
+    "overrides": {
+      "typescript": "5.7.*"
+    }
   },
   "packageManager": "pnpm@10.3.0"
 }
