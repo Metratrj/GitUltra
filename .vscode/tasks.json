@@ -13,7 +13,7 @@
         "problemMatcher": "$tsc-watch",
         // change this to your `beforeDevCommand`:
         "command": "pnpm",
-        "args": ["dev"]
+        "args": ["dev"] 
       },
       {
         "label": "ui:build",

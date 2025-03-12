@@ -1,4 +1,4 @@
-use git2::{BranchType, Repository};
+use git2::Repository;
 use std::path::PathBuf;
 
 pub fn open_repo(path: PathBuf) -> Result<Repository, git2::Error> {
