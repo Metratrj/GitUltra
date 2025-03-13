@@ -5,6 +5,8 @@ edition.workspace = true
 repository.workspace = true
 
 [dependencies]
-git2 = "0.20.0"
-base64.workspace = true
-rand.workspace = true
+git2.workspace = true
+redb = { workspace = true, features = ["logging", "cache_metrics"] }
+thiserror = "2.0.12"
+flatbuffers = { workspace = true }
+gitultra-schemas = { path = "../../packages/schemas"}

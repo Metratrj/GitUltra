@@ -1,7 +1,4 @@
-#![cfg_attr(
-    all(not(debug_assertions), target_os = "windows"),
-    windows_subsystem = "windows"
-)]
+#![cfg_attr(all(not(debug_assertions), target_os = "windows"), windows_subsystem = "windows")]
 
 // use specta_typescript::Typescript;
 use std::path::PathBuf;
@@ -77,11 +74,8 @@ pub fn run() {
             // this is needed to use specta events
             //builder.mount_events(app);
             if cfg!(debug_assertions) {
-                app.handle().plugin(
-                    tauri_plugin_log::Builder::default()
-                        .level(log::LevelFilter::Info)
-                        .build(),
-                )?;
+                app.handle()
+                    .plugin(tauri_plugin_log::Builder::default().level(log::LevelFilter::Info).build())?;
             }
             /*
                        #[cfg(desktop)]

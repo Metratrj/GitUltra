@@ -1,0 +1,15 @@
+namespace gitultra.git;
+
+table IndexEntry {
+    path:string;
+    oid:[ubyte];
+    size:uint32;
+    ctime:ulong;
+    mtime:ulong;
+}
+
+table IndexCache {
+    version:uint32;
+    entries:[IndexEntry];
+}
+root_type IndexCache;

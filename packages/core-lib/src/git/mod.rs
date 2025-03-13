@@ -1,6 +1,8 @@
 use git2::Repository;
 use std::path::PathBuf;
 
+mod index_cache;
+
 pub fn open_repo(path: PathBuf) -> Result<Repository, git2::Error> {
     Repository::open(path)
 }
@@ -8,9 +10,7 @@ pub fn open_repo(path: PathBuf) -> Result<Repository, git2::Error> {
 pub fn get_commits(repo: &Repository) -> Vec<git2::Commit> {
     let mut revwalk = repo.revwalk().unwrap();
     revwalk.push_head().unwrap();
-    revwalk
-        .filter_map(|id| repo.find_commit(id.unwrap()).ok())
-        .collect()
+    revwalk.filter_map(|id| repo.find_commit(id.unwrap()).ok()).collect()
 }
 
 pub fn get_branches(repo: &Repository) -> Vec<git2::Branch> {

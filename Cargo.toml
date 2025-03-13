@@ -25,5 +25,15 @@ strip         = true     # Remove debug symbols
 
 
 [workspace.dependencies]
-base64 = "0.22.1"
-rand="0.8.5"
+git2 = { version = "0.20.0" }
+tauri = { version = "2.3.1"}
+tauri-build = { version = "2.0.6" }
+tauri-plugin-log = "2.3.1"
+tauri-plugin-dialog = "2.2.0"
+tauri-plugin-store = "2.2.0"
+tauri-plugin-global-shortcut = "2.2.0"
+specta = "=2.0.0-rc.22"
+tauri-specta = { version = "=2.0.0-rc.21" }
+specta-typescript = "=0.0.9"
+redb = "=2.4.0"
+flatbuffers = "=25.2.10"
