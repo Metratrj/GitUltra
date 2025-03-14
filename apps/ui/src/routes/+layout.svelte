@@ -14,6 +14,7 @@
 
 	import { Menu } from '$lib/index';
 	import Themetoggler from './(components)/themetoggler.svelte';
+	import {RepoTabs} from "@/components/repotabs";
 	let { children } = $props();
 </script>
 
@@ -55,6 +56,8 @@
 				</nav>
 			</Sheet.Content>
 		</Sheet.Root>
+
+		<RepoTabs />
 		<div class="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
 			<form class="ml-auto flex-1 sm:flex-initial">
 				<div class="relative">

@@ -1,0 +1,1 @@
+export {default as RepoTabs } from "./repotabs.svelte";
