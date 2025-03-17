@@ -57,15 +57,15 @@ pub fn run() {
         shortcuts::get_current_shortcut::<tauri::Wry>,
     ]);
 
-    #[cfg(debug_assertions)]
+    /* #[cfg(debug_assertions)]
     builder
         .export(
             specta_typescript::Typescript::default()
                 .formatter(specta_typescript::formatter::prettier)
-                .header("/* eslint-disable */\n // @ts-nocheck"),
+                .header("/* eslint-disable */\n// @ts-nocheck"),
             "../../packages/schemas/ts/gitultra/bindings.ts",
         )
-        .expect("Failed to export typescript bindings");
+        .expect("Failed to export typescript bindings"); */
     
 
 
