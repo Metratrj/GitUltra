@@ -2,10 +2,13 @@
 
 // use specta_typescript::Typescript;
 use std::path::PathBuf;
+use tauri::App;
+use tauri::AppHandle;
+use tauri::Manager;
+use tauri::Runtime;
 use tauri_specta::{collect_commands, Builder};
 
 mod shortcuts;
-mod store;
 
 #[tauri::command]
 #[specta::specta]
@@ -15,10 +18,10 @@ fn greet(name: &str) -> String {
 
 #[tauri::command]
 #[specta::specta]
-fn open_repo_directory(path: PathBuf) -> String {
+fn open_repo_directory<T: Runtime>(app: AppHandle<T>, path: PathBuf) -> String {
     println!("Opening repo directory: {:?}", path);
 
-    let repo = match core_lib::git::open_repo(path) {
+    let repo = match core_lib::git::open_repo(&path) {
         Ok(repo) => repo,
         Err(e) => {
             return format!("Failed to open repo: {:?}", e);
@@ -26,8 +29,12 @@ fn open_repo_directory(path: PathBuf) -> String {
     };
 
     println!("Repo opened: {:?}", repo.path());
+    println!("Repo directory name: {:?}", repo.path().parent().unwrap().file_name());
 
-    let branches = core_lib::git::get_branches(&repo);
+    core_lib::store::repos::add_repo(&app, &path);
+    println!("Loaded Repos: {:?}", core_lib::store::repos::get_repos(&app));
+
+    /* let branches = core_lib::git::get_branches(&repo);
     for branch in branches {
         println!("branch: {:?}", branch.name().unwrap());
     }
@@ -35,7 +42,7 @@ fn open_repo_directory(path: PathBuf) -> String {
     let commits = core_lib::git::get_commits(&repo);
     for commit in commits {
         println!("commit: {:?}", commit.message().unwrap());
-    }
+    } */
 
     "Ok".to_string()
 }
@@ -44,23 +51,24 @@ fn open_repo_directory(path: PathBuf) -> String {
 pub fn run() {
     let builder = Builder::<tauri::Wry>::new().commands(collect_commands![
         greet,
-        open_repo_directory,
+        open_repo_directory::<tauri::Wry>,
         shortcuts::unregister_shortcut::<tauri::Wry>,
         shortcuts::change_shortcut::<tauri::Wry>,
         shortcuts::get_current_shortcut::<tauri::Wry>,
     ]);
 
-    /* #[cfg(debug_assertions)]
+    #[cfg(debug_assertions)]
     builder
         .export(
-            Typescript::default()
+            specta_typescript::Typescript::default()
                 .formatter(specta_typescript::formatter::prettier)
-                .header("/* eslint-disable */
-    \n // @ts-nocheck"),
+                .header("/* eslint-disable */\n // @ts-nocheck"),
             "../../packages/schemas/ts/gitultra/bindings.ts",
         )
         .expect("Failed to export typescript bindings");
-     */
+    
+
+
 
     tauri::Builder::default()
         //.plugin(tauri_plugin_cli::init())

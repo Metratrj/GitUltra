@@ -1,3 +1,4 @@
+use core_lib::git;
 use git2::Repository;
 use std::sync::MutexGuard;
 use std::{
@@ -6,9 +7,31 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+#[derive(Clone, Debug)]
+pub struct RepoHandle {
+    path: PathBuf,
+    repo: Repository
+}
+
+impl RepoHandle {
+    pub fn new(path: PathBuf, repo: Repository) -> Self {
+        Self {path, repo}
+    }
+
+    pub fn path(&self)->&PathBuf {
+        &self.path
+    }
+
+    pub fn repo(&self) -> &Repository {
+        &self.repo
+    }
+
+}
+
+
 #[derive(Clone)]
 pub struct RepoStore {
-    repos: Arc<Mutex<HashMap<PathBuf, Arc<Repository>>>>,
+    repos: Arc<Mutex<HashMap<PathBuf, RepoHandle>>>,
 }
 
 impl RepoStore {
@@ -19,12 +42,13 @@ impl RepoStore {
     }
 
     pub fn open_repo(&self, path: PathBuf) -> Result<(), git2::Error> {
-        let repo = Arc::new(Repository::open(&path)?);
-        self.repos.lock().unwrap().insert(path, repo);
+        let repo = git::open_repo(&path)?;
+        let handle = RepoHandle::new(path.clone(), repo);
+        self.repos.lock().unwrap().insert(path, handle);
         Ok(())
     }
 
-    pub fn get_repo(&self, path: &PathBuf) -> Option<Arc<Repository>> {
+    pub fn get_repo(&self, path: &PathBuf) -> Option<RepoHandle> {
         self.repos.lock().unwrap().get(path).cloned()
     }
 

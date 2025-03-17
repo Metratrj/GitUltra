@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 mod index_cache;
 
-pub fn open_repo(path: PathBuf) -> Result<Repository, git2::Error> {
+pub fn open_repo(path: &PathBuf) -> Result<Repository, git2::Error> {
     Repository::open(path)
 }
 

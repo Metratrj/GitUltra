@@ -602,6 +602,8 @@ dependencies = [
  "git2",
  "gitultra-schemas",
  "redb",
+ "tauri",
+ "tauri-plugin-store",
  "thiserror 2.0.12",
 ]
 

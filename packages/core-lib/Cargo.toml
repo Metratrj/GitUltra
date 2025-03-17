@@ -10,3 +10,5 @@ redb = { workspace = true, features = ["logging", "cache_metrics"] }
 thiserror = "2.0.12"
 flatbuffers = { workspace = true }
 gitultra-schemas = { path = "../../packages/schemas"}
+tauri.workspace = true
+tauri-plugin-store.workspace = true
