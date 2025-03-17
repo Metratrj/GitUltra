@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { cn } from '$lib/utils.js';
-    import { loadRepo } from '@/git';
+	import { loadRepo } from '@/git';
 
 	import * as Tabs from '@/components/ui/tabs';
 
@@ -51,8 +51,17 @@
 
 	export function handleAdd() {
 		console.log('Add Repo');
-        loadRepo();
+		loadRepo();
 	}
+
+	import { onMount } from 'svelte';
+    import { load } from '@tauri-apps/plugin-store';
+	
+    onMount(async () => {
+        const store = await load("gitultra-tauri-store");
+        const values = await store.get("gitultra-loaded-repos");
+        console.log(values);
+	});
 </script>
 
 <Tabs.Root class="h-full space-y-6">
