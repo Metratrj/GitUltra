@@ -78,7 +78,10 @@
 		// Setup canvas
 		const width = (canvas.width = canvas.offsetWidth);
 		const height = (canvas.height = canvas.offsetHeight);
-
+		quadtree = d3
+			.quadtree<CNode>()
+			.x((d) => d.x)
+			.y((d) => d.y);
 		// Initialize simulation and zoom
 		initSimulation(width, height);
 		initZoom();
@@ -88,125 +91,210 @@
 
 		loading = false;
 	});
+	interface Branch {
+		id: string;
+		start: string;
+		end: string;
+		color: string;
+	}
+	let branches: Branch[] = [];
+	const childMap = new Map<string, string[]>();
 
+	function detectBranches() {
+		// Build child map
+		childMap.clear();
+		nodes.forEach((node) => {
+			node.parents.forEach((parent) => {
+				if (!childMap.has(parent)) childMap.set(parent, []);
+				childMap.get(parent)!.push(node.id);
+			});
+		});
+
+		// Detect branch points and merge points
+		const branchPoints = new Map<string, string>();
+		const mergePoints = new Map<string, string[]>();
+
+		nodes.forEach((node) => {
+			// Detect merges (multiple parents)
+			if (node.parents.length > 1) {
+				mergePoints.set(node.id, node.parents);
+			}
+
+			// Detect branch points (multiple children)
+			const children = childMap.get(node.id) || [];
+			if (children.length > 1) {
+				children.forEach((child) => {
+					branchPoints.set(child, node.id);
+				});
+			}
+		});
+
+		// Build branch objects
+		branches = [];
+		const branchColors = new Map<string, string>();
+
+		nodes.forEach((node) => {
+			// Only process branch starts
+			if (branchPoints.has(node.id)) {
+				const start = branchPoints.get(node.id)!;
+				let current = node.id;
+				let end = current;
+
+				// Follow the branch until merge or end
+				while (true) {
+					const parents = nodes.find((n) => n.id === current)?.parents || [];
+					if (parents.length !== 1) break;
+
+					const next = parents[0];
+					if (mergePoints.has(next)) {
+						end = next;
+						break;
+					}
+					current = next;
+				}
+
+				// Generate unique color per branch
+				if (!branchColors.has(start)) {
+					branchColors.set(start, `hsl(${Math.random() * 360}, 70%, 50%)`);
+				}
+
+				branches.push({
+					id: `${start}-${end}`,
+					start,
+					end,
+					color: branchColors.get(start)!
+				});
+			}
+		});
+	}
 	function initSimulation(width: number, height: number) {
 		viewportHeight = height;
-		const availableColumns = new Set<number>();
+		const availableColumns: number[] = [];
 		const branchMap = new Map<string, number>();
+		const activeBranches = new Map<number, string>(); // column -> head commit
 		let maxColumn = 0;
 
-		nodes.forEach((node, i) => {
+		// Build child map for branch detection
+		const childMap = new Map<string, string[]>();
+		nodes.forEach((node) => {
+			node.parents.forEach((parent) => {
+				if (!childMap.has(parent)) childMap.set(parent, []);
+				childMap.get(parent)!.push(node.id);
+			});
+		});
+
+		console.log(
+			'Child Map:',
+			Array.from(childMap.entries()).map(([parent, children]) => ({
+				parent: parent.slice(0, 7),
+				children: children.map((c) => c.slice(0, 7))
+			}))
+		);
+
+		// Process nodes in reverse topological order (oldest first)
+		const processedNodes = [...nodes];
+
+		processedNodes.forEach((node, i) => {
+
+			const children = childMap.get(node.id) || [];
 			const parentColumns = node.parents
-				.map((p) => branchMap.get(p))
-				.filter((c) => c !== undefined) as number[];
+				.filter((p) => branchMap.has(p))
+				.map((p) => branchMap.get(p)!);
 
 			let column: number;
 
-			// Handle merge commits
+			// Merge commit handling
 			if (parentColumns.length > 1) {
 				column = Math.round(parentColumns.reduce((a, b) => a + b, 0) / parentColumns.length);
 
 				// Free merged columns
 				parentColumns.forEach((c) => {
-					if (c !== column) availableColumns.add(c);
+					if (c !== column && activeBranches.delete(c)) {
+						availableColumns.push(c);
+					}
 				});
 			}
-			// New branch
-			else if (parentColumns.length === 0) {
-				column = availableColumns.size > 0 ? Array.from(availableColumns).shift()! : maxColumn++;
-				availableColumns.delete(column);
-			}
-			// Linear commit
-			else {
-				column = parentColumns[0];
-			}
+			// Branch split handling
+			else if (children.length > 1) {
+				// First child stays in parent column, others get new columns
+				column = branchMap.get(node.id) ?? availableColumns.pop() ?? maxColumn++;
 
-			// Calculate weighted average based on branch length
-			const columnWeights = parentColumns.map((c) => {
-				const branchNodes = nodes.filter((n) => branchMap.get(n.oid) === c);
-				return branchNodes.length;
-			});
-
-			const totalWeight = columnWeights.reduce((a, b) => a + b, 0);
-			if (parentColumns.length > 0)
-				column = Math.round(
-					parentColumns.reduce((a, c, i) => a + c * columnWeights[i], 0) / totalWeight
-				);
-
-			branchMap.set(node.oid, column);
-			node.x = column * COLUMN_WIDTH + COLUMN_WIDTH / 2;
-			node.y = i * NODE_HEIGHT;
-
-			console.log(`Commit ${node.oid.slice(0, 7)}: Column ${column}`);
-		});
-
-
-		quadtree = d3
-			.quadtree<CNode>()
-			.x((d) => d.x)
-			.y((d) => d.y);
-		updateVisibleNodes();
-		updateSpatialIndex();
-
-		console.log('Column mapping:', Array.from(branchMap.entries()));
-		console.log('Available columns:', availableColumns);
-		console.log(
-			'Topological order:',
-			nodes.map((n) => n.oid.slice(0, 7))
-		);
-	}
-
-			/* nodes.forEach((node, i) => {
-			const parentColumns = node.parents
-				.map((p) => branchMap.get(p))
-				.filter((c) => c !== undefined) as number[];
-
-			let column: number;
-
-			// Handle merge commits first
-			if (parentColumns.length > 1) {
-				/* column = Math.round(parentColumns.reduce((a, b) => a + b, 0) / parentColumns.length);
-				availableColumns.push(...parentColumns.filter((c) => c !== column)); **\/
-				// Calculate weighted average based on branch length
-				const columnWeights = parentColumns.map((c) => {
-					const branchNodes = nodes.filter((n) => branchMap.get(n.oid) === c);
-					return branchNodes.length;
+				// Assign new columns to additional children
+				children.slice(1).forEach(() => {
+					const newCol = availableColumns.pop() ?? maxColumn++;
+					activeBranches.set(newCol, node.id);
 				});
-
-				const totalWeight = columnWeights.reduce((a, b) => a + b, 0);
-				column = Math.round(
-					parentColumns.reduce((a, c, i) => a + c * columnWeights[i], 0) / totalWeight
-				);	
 			}
 			// New branch creation
 			else if (parentColumns.length === 0) {
-				column = availableColumns.length > 0 ? availableColumns.shift()! : maxColumn++;
+				column = availableColumns.pop() ?? maxColumn++;
 			}
 			// Linear commit
 			else {
 				column = parentColumns[0];
 			}
 
-			const mergedColumns = parentColumns.slice(1);
-			availableColumns.push(...mergedColumns);
-			mergedColumns.forEach((c) => {
-				const index = availableColumns.indexOf(c);
-				if (index > -1) availableColumns.splice(index, 1);
-			});
-
-			// Update branch mapping
-			branchMap.set(node.oid, column);
+			// Update data structures
+			branchMap.set(node.id, column);
+			activeBranches.set(column, node.id);
 			node.x = column * COLUMN_WIDTH + COLUMN_WIDTH / 2;
 			node.y = i * NODE_HEIGHT;
-		}); */
+
+			console.log(`Commit ${node.id.slice(0, 7)}: Column ${column}`);
+			console.log('Parent columns:', parentColumns);
+			console.log('Available columns:', availableColumns);
+		});
+
+		/* 	function detectBranches(_childMap: Map<string, string[]>, arrNodes: CNode[]) {
+			const branchStarts = new Map<string, string>();
+			const branchEnds = new Map<string, string>();
+
+			// return;
+			arrNodes.forEach((node) => {
+				if (node.parents.length > 1) {
+					// Merge point
+					node.parents.forEach((parent) => {
+						if (!branchEnds.has(parent)) branchEnds.set(parent, node.id);
+					});
+				}
+				if (_childMap.has(node.id) && _childMap.get(node.id)?.length > 1) {
+					// Branch point
+					_childMap.get(node.id)!.forEach((child) => {
+						if (!branchStarts.has(child)) {
+							branchStarts.set(child, node.id);
+						}
+					});
+				}
+			});
+
+			// Generate branch objects
+			branches = Array.from(branchStarts.entries()).map(([end, start]) => ({
+				id: `${start}-${end}`,
+				start,
+				end,
+				color: `hsl(${Math.random() * 360}, 70%, 50%)`
+			}));
+		} */
+
+		detectBranches();
+		updateVisibleNodes();
+		updateSpatialIndex();
+		console.log('Branches:', branches);
+		console.log('Active branches:', Array.from(activeBranches.entries()));
+	}
 
 	function initZoom() {
 		const zoom = d3
 			.zoom<HTMLCanvasElement, unknown>()
 			.scaleExtent([1, 1])
+			.translateExtent([
+				[0, 0],
+				[canvas.width, nodes.length * NODE_HEIGHT]
+			])
 			.on('zoom', (event) => {
 				// Constrain to verical movement only
 				transform = d3.zoomIdentity.translate(0, event.transform.y).scale(1);
+				detectBranches(); // Update branches on view change
 				updateVisibleNodes();
 				updateSpatialIndex();
 				draw();
@@ -230,12 +318,6 @@
 		ctx.save();
 		ctx.translate(transform.x, transform.y);
 
-		/* 		ctx.fillStyle = '#4CAF51';
-  visibleNodes.forEach(node => {
-    ctx.fillRect(node.x - 2, node.y - 2, 4, 4);
-  });
-  return; */
-
 		// Draw grid lines
 		ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
 		ctx.lineWidth = 1;
@@ -250,6 +332,21 @@
 		ctx.font = '10px monospace';
 		nodes.forEach((node) => {
 			ctx.fillText(`${node.oid.slice(0, 3)}`, node.x - 10, node.y + 5);
+		});
+
+		// Draw vertical branch lines
+		ctx.strokeStyle = 'rgba(255, 0, 0, 0.6)';
+		ctx.lineWidth = 2;
+		nodes.forEach((node) => {
+			ctx.beginPath();
+			ctx.moveTo(node.x, node.y);
+			node.parents.forEach((parentId) => {
+				const parent = nodes.find((n) => n.id === parentId);
+				if (parent) {
+					ctx.lineTo(parent.x, parent.y);
+				}
+			});
+			ctx.stroke();
 		});
 
 		// Draw links
@@ -279,12 +376,34 @@
 			ctx.fill();
 		});
 
+		// Draw merge commits differently
+		ctx.fillStyle = '#FF5722';
+		nodes
+			.filter((node) => node.parents.length > 1)
+			.forEach((node) => {
+				ctx.beginPath();
+				ctx.arc(node.x, node.y, 8, 0, 2 * Math.PI);
+				ctx.fill();
+			});
+
 		// Draw column numbers
 		ctx.fillStyle = 'white';
 		ctx.font = '12px monospace';
 		Array.from(new Set(visibleNodes.map((n) => n.x))).forEach((x) => {
 			const col = Math.round((x - COLUMN_WIDTH / 2) / COLUMN_WIDTH);
 			ctx.fillText(`Col ${col}`, x - 20, -transform.y + 20);
+		});
+
+		// Draw branches with different colors
+		branches.forEach((branch) => {
+			const startNode = nodes.find((n) => n.id === branch.start)!;
+			const endNode = nodes.find((n) => n.id === branch.end)!;
+
+			ctx.strokeStyle = branch.color;
+			ctx.beginPath();
+			ctx.moveTo(startNode.x, startNode.y);
+			ctx.lineTo(endNode.x, endNode.y);
+			ctx.stroke();
 		});
 
 		ctx.restore();
@@ -296,35 +415,9 @@
 
 	function handleMouseMove(event: MouseEvent) {
 		const [x, y] = d3.pointer(event);
-		//const transformed = d3.zoomIdentity.translate(transform.x, transform.y).invert([x, y]);
 		const inverted = transform.invert([x, y]);
-
-		/* console.log('Canvas Position:', { x, y });
-		console.log('Graph Position:', inverted);
-		console.log('Tooltip Position:', {
-			x: inverted[0] + transform.x,
-			y: inverted[1] + transform.y
-		}); */
-
 		hoveredCommit = quadtree.find(inverted[0], inverted[1], 15 * 3)!;
 	}
-	/* function getTooltipPosition(node: CNode) {
-		const TOOLTIP_WIDTH = 300;
-		const TOOLTIP_HEIGHT = 100;
-
-		let left = node.x + transform.x;
-		let top = node.y + transform.y;
-
-		// Keep within viewport bounds
-		if (left + TOOLTIP_WIDTH > window.innerWidth) {
-			left = window.innerWidth - TOOLTIP_WIDTH;
-		}
-		if (top + TOOLTIP_HEIGHT > window.innerHeight) {
-			top = window.innerHeight - TOOLTIP_HEIGHT;
-		}
-
-		return { left, top };
-	} */
 
 	function getTooltipPosition(node: CNode) {
 		const TOOLTIP_OFFSET = 15;
