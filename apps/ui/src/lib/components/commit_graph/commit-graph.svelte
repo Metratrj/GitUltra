@@ -206,10 +206,10 @@
 		}));
 	}
 	const branchMap = new Map<string, number>(); // commit ID -> column
+	const availableColumns: number[] = [];
 
 	function initSimulation(width: number, height: number) {
 		viewportHeight = height;
-		const availableColumns: number[] = [];
 		const activeBranches = new Map<number, string>(); // column -> head commit
 		let maxColumn = 0;
 
@@ -236,18 +236,19 @@
 
 			// Merge commit handling - prioritize column 0 for main branch
 			if (parentColumns.length > 1) {
-            // Prefer column 0 if present in parents
-            column = parentColumns.includes(0) ? 0 : 
-                     Math.min(...parentColumns);
-            
-            // Release merged columns
-            parentColumns.filter(c => c !== column).forEach(c => {
-                if (activeBranches.delete(c)) {
-                    availableColumns.push(c);
-                    availableColumns.sort((a, b) => a - b); // Keep sorted
-                }
-            });
-        }
+				// Prefer column 0 if present in parents
+				column = parentColumns.includes(0) ? 0 : Math.min(...parentColumns);
+
+				// Release merged columns
+				parentColumns
+					.filter((c) => c !== column)
+					.forEach((c) => {
+						if (activeBranches.delete(c)) {
+							availableColumns.push(c);
+							availableColumns.sort((a, b) => a - b); // Keep sorted
+						}
+					});
+			}
 			// Branch split handling
 			else if (children.length > 1) {
 				// First child stays in parent column, others get new columns
@@ -413,6 +414,12 @@
 					}
 				});
 			});
+
+		// Draw column debug info
+		ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
+		availableColumns.forEach((col) => {
+			ctx.fillRect(col * COLUMN_WIDTH, -transform.y, COLUMN_WIDTH, viewportHeight);
+		});
 
 		ctx.restore();
 	}
