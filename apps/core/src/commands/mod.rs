@@ -70,7 +70,10 @@ pub fn get_commit_graph<T: Runtime>(
             return Err(format!("Failed to open repo: {:?}", e));
         }
     };
-    Ok(core_lib::git::get_commit_graph(&repo))
+    match core_lib::git::get_commit_graph(&repo) {
+        Ok(x) => Ok(x),
+        Err(e) => Err(e.to_string()),
+    }
 }
 
 

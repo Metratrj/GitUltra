@@ -18,28 +18,33 @@ pub fn open_repo(path: &PathBuf) -> Result<Repository, git2::Error> {
     Repository::open(path)
 }
 
-pub fn get_commits(repo: &Repository) -> Vec<git2::Commit> {
-    let mut revwalk = repo.revwalk().unwrap();
-    revwalk.push_head().unwrap();
-    revwalk.filter_map(|id| repo.find_commit(id.unwrap()).ok()).collect()
+pub fn get_commits(repo: &Repository) -> Result<Vec<git2::Commit>, git2::Error> {
+    let mut revwalk = repo.revwalk()?;
+    revwalk.set_sorting(git2::Sort::TIME | git2::Sort::TOPOLOGICAL)?;
+    revwalk.push_head()?;
+    
+    revwalk
+        .map(|id| repo.find_commit(id?))
+        .collect()
 }
 
 
-pub fn get_commit_graph(repo: &Repository) -> Vec<CommitNode> {
-    let mut walk = repo.revwalk().unwrap();;
-    walk.push_head().unwrap();
+pub fn get_commit_graph(repo: &Repository) -> Result<Vec<CommitNode>, git2::Error> {
+    let mut walk = repo.revwalk()?;
+    walk.set_sorting(git2::Sort::TIME | git2::Sort::TOPOLOGICAL)?;
+    walk.push_head()?;
 
     walk.map(|oid| {
-        let oid = oid.unwrap();
-        let commit = repo.find_commit(oid).unwrap().to_owned();
+        let oid = oid?;
+        let commit = repo.find_commit(oid)?.to_owned();
         let x = CommitNode {
             oid: oid.to_string(),
             author: commit.author().to_string(),
             message: commit.message().unwrap_or("").to_string(),
             parents: commit.parent_ids().map(|p| p.to_string()).collect(),
             timestamp: commit.time().seconds(),
-        };
-        x
+        }; 
+        Ok(x)
     }).collect()
 }
 
