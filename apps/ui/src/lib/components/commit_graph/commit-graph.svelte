@@ -2,6 +2,7 @@
 	import { commands, type CommitNode } from '@gitultra/schemas/ts/gitultra/bindings';
 	import { onDestroy, onMount } from 'svelte';
 	import * as d3 from 'd3';
+	import { topologicalSort } from '@/utils';
 
 	export let repo_name: string;
 
@@ -28,6 +29,8 @@
 	const COLUMN_WIDTH = 100;
 	let visibleNodes: CNode[] = [];
 
+	let quadtree: d3.Quadtree<CNode>;
+
 	onMount(async () => {
 		if (!canvas) {
 			console.error('Canvas element not found');
@@ -45,14 +48,14 @@
 		let resp = await commands.getCommitGraph(repo_name);
 		console.log(resp);
 		if (resp.status != 'ok') return;
-		nodes = resp.data.map((commit) => ({
+		nodes = topologicalSort(resp.data).map((commit) => ({
 			...commit,
 			id: commit.oid,
 			x: 0,
 			y: 0
 		}));
 
-		links = resp.data.flatMap((commit) =>
+		links = nodes.flatMap((commit) =>
 			commit.parents.map((parent) => ({
 				source: commit.oid,
 				target: parent
@@ -87,27 +90,16 @@
 	});
 
 	function initSimulation(width: number, height: number) {
-		const nodeSpacing = height / 25;
-
-		// Position nodes in a straight horizontal line
-		nodes.forEach((node, i) => {
-			node.x = height / 2; // centered vertically
-			node.y = nodeSpacing * (i + 1); // Evenly spaced along the X-axis
-			node.fx = node.x; // fix x position
-			node.fy = node.y; // fix y position
-		});
-
-		// no simulation needed
-		draw();
-
 		viewportHeight = height;
+		const sortedNodes = topologicalSort(nodes);
+		const availableColumns: number[] = [];
+		const branchMap = new Map<string, number>(); // commit id -> column
 
 		// Grid layout algorith
 		const columns = new Map<string, number>(); // branch name -> column index
-		let currentColumn = 0;
+		let currentColumn = 2;
 
-
-		nodes.forEach((node, i) => {
+		/* nodes.forEach((node, i) => {
 			const isMerge = node.parents.length > 1;
 			const isBranchStart = node.parents.length === 0;
 
@@ -117,17 +109,47 @@
 			}
 
 			// Assign grid position
-			node.x = (columns.get(node.id) || 1) * COLUMN_WIDTH;
+			node.x = (columns.get(node.id) || 2) * COLUMN_WIDTH;
 			node.y = i * NODE_HEIGHT;
 
 			if (isMerge) {
-				const parentColumns = node.parents.map(p => columns.get(p)!);
-				node.x = parentColumns.reduce((a, b) => a + b, 0) / parentColumns.length * COLUMN_WIDTH;
+				const parentColumns = node.parents.map((p) => columns.get(p)!);
+				node.x = (parentColumns.reduce((a, b) => a + b, 0) / parentColumns.length) * COLUMN_WIDTH;
 			}
-		});
+		}); */
+
+		nodes.forEach((node, i) => {
+			const parentColumns = node.parents.map(p => branchMap.get(p)).filter(c => c !== undefined) as number[];
+
+			// determine column
+			let column: number;
+			if (parentColumns.length == 0) {
+				// root commit - new branch
+				column = availableColumns.length > 0 ? availableColumns.shift()! : branchMap.size;
+			}
+			else if (parentColumns.length > 1){
+				// merge commit -center between parents
+				column = parentColumns.reduce((a,b) => a+b,0) / parentColumns.length;
+				availableColumns.push(...parentColumns.slice(1));
+				
+			} else {
+				// Linear commit - follow parent column
+				column = parentColumns[0];
+			}
+
+			branchMap.set(node.oid, column);
+			node.x = column * COLUMN_WIDTH + COLUMN_WIDTH / 2;
+			node.y = i * NODE_HEIGHT;
+		}); 
+
 		// Set initial view position
-		transform = d3.zoomIdentity.translate(0, -nodes[0].y + height/2);
+		//transform = d3.zoomIdentity.translate(0, -nodes[0].y + height/2);
+		quadtree = d3
+			.quadtree<CNode>()
+			.x((d) => d.x)
+			.y((d) => d.y);
 		updateVisibleNodes();
+		updateSpatialIndex();
 	}
 
 	function initZoom() {
@@ -138,6 +160,7 @@
 				// Constrain to verical movement only
 				transform = d3.zoomIdentity.translate(0, event.transform.y).scale(1);
 				updateVisibleNodes();
+				updateSpatialIndex();
 				draw();
 			});
 
@@ -145,14 +168,13 @@
 	}
 
 	function updateVisibleNodes() {
+		const buffer = NODE_HEIGHT * 5; // render 5 rows above/below
 		// Calculate visible Y range
-		const minY = -transform.y;
-		const maxY = minY + viewportHeight;
+		const minY = -transform.y - buffer;
+		const maxY = -transform.y + viewportHeight + buffer;
 
 		// Get nodes in viewport with buffer
-		visibleNodes = nodes.filter(
-			(node) => node.y > minY - NODE_HEIGHT * 2 && node.y < maxY + NODE_HEIGHT * 2
-		);
+		visibleNodes = nodes.filter((node) => node.y > minY && node.y < maxY);
 	}
 
 	function draw() {
@@ -173,7 +195,12 @@
 		// Draw links
 		ctx.strokeStyle = 'rgba(75, 155, 255, 0.8)';
 		ctx.lineWidth = 2;
-		links.forEach((link) => {
+
+		const visibleIds = new Set(visibleNodes.map((n) => n.oid));
+		const visibleLinks = links.filter(
+			(link) => visibleIds.has(link.source) || visibleIds.has(link.target)
+		);
+		visibleLinks.forEach((link) => {
 			const source = nodes.find((n) => n.id === link.source)!;
 			const target = nodes.find((n) => n.id === link.target)!;
 			if (visibleNodes.includes(source) || visibleNodes.includes(target)) {
@@ -188,21 +215,58 @@
 		ctx.fillStyle = '#4CAF51';
 		visibleNodes.forEach((node) => {
 			ctx.beginPath();
-			ctx.arc(node.x!, node.y!, 5, 0, 2 * Math.PI);
+			ctx.arc(node.x!, node.y!, 15, 0, 2 * Math.PI);
 			ctx.fill();
 		});
 
 		ctx.restore();
 	}
 
-	function handleMouseMove(event: MouseEvent) {
-		const [x, y] = d3.pointer(event);
-		const inverted = transform.invert([x, y]);
-
-		hoveredCommit =
-			nodes.find((node) => Math.hypot(node.x! - inverted[0], node.y! - inverted[1]) < 5) || null;
+	function updateSpatialIndex() {
+		quadtree = quadtree.addAll(visibleNodes);
 	}
 
+	function handleMouseMove(event: MouseEvent) {
+		const [x, y] = d3.pointer(event);
+		//const transformed = d3.zoomIdentity.translate(transform.x, transform.y).invert([x, y]);
+		const inverted = transform.invert([x, y]);
+
+		/* console.log('Canvas Position:', { x, y });
+		console.log('Graph Position:', inverted);
+		console.log('Tooltip Position:', {
+			x: inverted[0] + transform.x,
+			y: inverted[1] + transform.y
+		}); */
+
+		hoveredCommit = quadtree.find(inverted[0], inverted[1], 15 * 2)!;
+	}
+	/* function getTooltipPosition(node: CNode) {
+		const TOOLTIP_WIDTH = 300;
+		const TOOLTIP_HEIGHT = 100;
+
+		let left = node.x + transform.x;
+		let top = node.y + transform.y;
+
+		// Keep within viewport bounds
+		if (left + TOOLTIP_WIDTH > window.innerWidth) {
+			left = window.innerWidth - TOOLTIP_WIDTH;
+		}
+		if (top + TOOLTIP_HEIGHT > window.innerHeight) {
+			top = window.innerHeight - TOOLTIP_HEIGHT;
+		}
+
+		return { left, top };
+	} */
+
+	function getTooltipPosition(node: CNode) {
+    const TOOLTIP_OFFSET = 15;
+    const canvasRect = canvas.getBoundingClientRect();
+    
+    return {
+      left: node.x + transform.x + canvasRect.left + TOOLTIP_OFFSET,
+      top: node.y + transform.y + canvasRect.top + TOOLTIP_OFFSET
+    };
+  }
 	onDestroy(() => {
 		canvas.removeEventListener('mousemove', handleMouseMove);
 	});
@@ -213,7 +277,10 @@
 	{#if loading}
 		<div class="loading">Loading commit graph...</div>
 	{:else if hoveredCommit}
-		<div class="tooltip" style={`left: ${hoveredCommit.x!}px; top: ${hoveredCommit.y!}px`}>
+		<div
+			class="tooltip"
+			style={`left: ${getTooltipPosition(hoveredCommit).left}px; top: ${getTooltipPosition(hoveredCommit).top}px`}
+		>
 			<div class="tooltip-header">{hoveredCommit.id.slice(0, 7)}</div>
 			<div class="tooltip-author">{hoveredCommit.author}</div>
 			<div class="tooltip-message">{hoveredCommit.message}</div>
