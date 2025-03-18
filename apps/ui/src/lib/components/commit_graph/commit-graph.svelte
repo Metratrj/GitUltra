@@ -99,6 +99,15 @@
 	}
 	let branches: Branch[] = [];
 	const childMap = new Map<string, string[]>();
+	// Helper function
+	function isAncestor(commit: string, ancestor: string): boolean {
+		// Implement actual ancestor check using your commit data
+		return nodes.find((n) => n.id === commit)?.parents.includes(ancestor) ?? false;
+	}
+	function commitToColor(commitHash: string): string {
+		const hash = Array.from(commitHash).reduce((acc, char) => acc + char.charCodeAt(0), 0);
+		return `hsl(${hash % 360}, 70%, 50%)`;
+	}
 
 	function detectBranches() {
 		// Build child map
@@ -155,7 +164,7 @@
 
 				// Generate unique color per branch
 				if (!branchColors.has(start)) {
-					branchColors.set(start, `hsl(${Math.random() * 360}, 70%, 50%)`);
+					branchColors.set(start, commitToColor(start));
 				}
 
 				branches.push({
@@ -166,6 +175,35 @@
 				});
 			}
 		});
+		const branchLifetimes = new Map<string, { start: string; end?: string }>();
+		nodes.forEach((node) => {
+			// When a new branch starts
+			if (branchPoints.has(node.id)) {
+				const start = branchPoints.get(node.id)!;
+				if (!branchLifetimes.has(start)) {
+					branchLifetimes.set(start, { start: node.id });
+				}
+			}
+
+			// When a branch ends (merge commit)
+			if (node.parents.length > 1) {
+				node.parents.forEach((parent) => {
+					branchLifetimes.forEach((lifetime, key) => {
+						if (lifetime.end === undefined && isAncestor(parent, lifetime.start)) {
+							lifetime.end = node.id;
+						}
+					});
+				});
+			}
+		});
+
+		// Generate final branches
+		branches = Array.from(branchLifetimes.entries()).map(([id, lifetime]) => ({
+			id: `${lifetime.start}-${lifetime.end || lifetime.start}`,
+			start: lifetime.start,
+			end: lifetime.end || lifetime.start,
+			color: commitToColor(lifetime.start)
+		}));
 	}
 	const branchMap = new Map<string, number>(); // commit ID -> column
 
@@ -189,25 +227,27 @@
 
 		processedNodes.forEach((node) => {
 			const children = childMap.get(node.id) || [];
-			
+
 			const parentColumns = node.parents
 				.filter((p) => branchMap.has(p))
 				.map((p) => branchMap.get(p)!);
 
 			let column: number;
 
-			// Merge commit handling
+			// Merge commit handling - prioritize column 0 for main branch
 			if (parentColumns.length > 1) {
-				// Place merge commit in the average column of its parents
-				column = Math.round(parentColumns.reduce((a, b) => a + b, 0) / parentColumns.length);
-
-				// Free merged columns
-				parentColumns.forEach((c) => {
-					if (c !== column && activeBranches.delete(c)) {
-						availableColumns.push(c);
-					}
-				});
-			}
+            // Prefer column 0 if present in parents
+            column = parentColumns.includes(0) ? 0 : 
+                     Math.min(...parentColumns);
+            
+            // Release merged columns
+            parentColumns.filter(c => c !== column).forEach(c => {
+                if (activeBranches.delete(c)) {
+                    availableColumns.push(c);
+                    availableColumns.sort((a, b) => a - b); // Keep sorted
+                }
+            });
+        }
 			// Branch split handling
 			else if (children.length > 1) {
 				// First child stays in parent column, others get new columns
@@ -222,11 +262,21 @@
 			}
 			// New branch creation
 			else if (parentColumns.length === 0) {
-				column = availableColumns.pop() ?? maxColumn++;
+				column = availableColumns.length > 0 ? availableColumns.shift()! : maxColumn++;
+
+				// Always keep column 0 available for main branch
+				if (column === 0 && nodes.some((n) => branchMap.get(n.id) === 0)) {
+					column = availableColumns.shift() ?? maxColumn++;
+				}
 			}
 			// Linear commit
 			else {
 				column = parentColumns[0];
+			}
+
+			// Update data structures
+			if (parentColumns.length === 0 && column !== 0) {
+				availableColumns.push(column);
 			}
 
 			// Update data structures
