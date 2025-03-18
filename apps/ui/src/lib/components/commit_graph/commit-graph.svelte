@@ -101,33 +101,71 @@
 	const childMap = new Map<string, string[]>();
 
 	function detectBranches() {
-		const branchStarts = new Map<string, string>(); // child -> parent
-		const branchEnds = new Map<string, string>(); // parent -> child
+		// Build child map
+		childMap.clear();
+		nodes.forEach((node) => {
+			node.parents.forEach((parent) => {
+				if (!childMap.has(parent)) childMap.set(parent, []);
+				childMap.get(parent)!.push(node.id);
+			});
+		});
+
+		// Detect branch points and merge points
+		const branchPoints = new Map<string, string>();
+		const mergePoints = new Map<string, string[]>();
 
 		nodes.forEach((node) => {
 			// Detect merges (multiple parents)
 			if (node.parents.length > 1) {
-				node.parents.forEach((parent) => {
-					if (!branchEnds.has(parent)) branchEnds.set(parent, node.id);
-				});
+				mergePoints.set(node.id, node.parents);
 			}
 
-			// Detect branch splits (multiple children)
+			// Detect branch points (multiple children)
 			const children = childMap.get(node.id) || [];
 			if (children.length > 1) {
 				children.forEach((child) => {
-					if (!branchStarts.has(child)) branchStarts.set(child, node.id);
+					branchPoints.set(child, node.id);
 				});
 			}
 		});
 
-		// Generate branch objects
-		branches = Array.from(branchStarts.entries()).map(([end, start]) => ({
-			id: `${start}-${end}`,
-			start,
-			end,
-			color: `hsl(${Math.random() * 360}, 70%, 50%)`
-		}));
+		// Build branch objects
+		branches = [];
+		const branchColors = new Map<string, string>();
+
+		nodes.forEach((node) => {
+			// Only process branch starts
+			if (branchPoints.has(node.id)) {
+				const start = branchPoints.get(node.id)!;
+				let current = node.id;
+				let end = current;
+
+				// Follow the branch until merge or end
+				while (true) {
+					const parents = nodes.find((n) => n.id === current)?.parents || [];
+					if (parents.length !== 1) break;
+
+					const next = parents[0];
+					if (mergePoints.has(next)) {
+						end = next;
+						break;
+					}
+					current = next;
+				}
+
+				// Generate unique color per branch
+				if (!branchColors.has(start)) {
+					branchColors.set(start, `hsl(${Math.random() * 360}, 70%, 50%)`);
+				}
+
+				branches.push({
+					id: `${start}-${end}`,
+					start,
+					end,
+					color: branchColors.get(start)!
+				});
+			}
+		});
 	}
 	function initSimulation(width: number, height: number) {
 		viewportHeight = height;
