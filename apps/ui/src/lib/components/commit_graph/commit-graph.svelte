@@ -91,66 +91,114 @@
 
 	function initSimulation(width: number, height: number) {
 		viewportHeight = height;
-		const sortedNodes = topologicalSort(nodes);
-		const availableColumns: number[] = [];
-		const branchMap = new Map<string, number>(); // commit id -> column
-
-		// Grid layout algorith
-		const columns = new Map<string, number>(); // branch name -> column index
-		let currentColumn = 2;
-
-		/* nodes.forEach((node, i) => {
-			const isMerge = node.parents.length > 1;
-			const isBranchStart = node.parents.length === 0;
-
-			if (isBranchStart) {
-				currentColumn++;
-				columns.set(node.id, currentColumn);
-			}
-
-			// Assign grid position
-			node.x = (columns.get(node.id) || 2) * COLUMN_WIDTH;
-			node.y = i * NODE_HEIGHT;
-
-			if (isMerge) {
-				const parentColumns = node.parents.map((p) => columns.get(p)!);
-				node.x = (parentColumns.reduce((a, b) => a + b, 0) / parentColumns.length) * COLUMN_WIDTH;
-			}
-		}); */
+		const availableColumns = new Set<number>();
+		const branchMap = new Map<string, number>();
+		let maxColumn = 0;
 
 		nodes.forEach((node, i) => {
-			const parentColumns = node.parents.map(p => branchMap.get(p)).filter(c => c !== undefined) as number[];
+			const parentColumns = node.parents
+				.map((p) => branchMap.get(p))
+				.filter((c) => c !== undefined) as number[];
 
-			// determine column
 			let column: number;
-			if (parentColumns.length == 0) {
-				// root commit - new branch
-				column = availableColumns.length > 0 ? availableColumns.shift()! : branchMap.size;
+
+			// Handle merge commits
+			if (parentColumns.length > 1) {
+				column = Math.round(parentColumns.reduce((a, b) => a + b, 0) / parentColumns.length);
+
+				// Free merged columns
+				parentColumns.forEach((c) => {
+					if (c !== column) availableColumns.add(c);
+				});
 			}
-			else if (parentColumns.length > 1){
-				// merge commit -center between parents
-				column = parentColumns.reduce((a,b) => a+b,0) / parentColumns.length;
-				availableColumns.push(...parentColumns.slice(1));
-				
-			} else {
-				// Linear commit - follow parent column
+			// New branch
+			else if (parentColumns.length === 0) {
+				column = availableColumns.size > 0 ? Array.from(availableColumns).shift()! : maxColumn++;
+				availableColumns.delete(column);
+			}
+			// Linear commit
+			else {
 				column = parentColumns[0];
 			}
+
+			// Calculate weighted average based on branch length
+			const columnWeights = parentColumns.map((c) => {
+				const branchNodes = nodes.filter((n) => branchMap.get(n.oid) === c);
+				return branchNodes.length;
+			});
+
+			const totalWeight = columnWeights.reduce((a, b) => a + b, 0);
+			if (parentColumns.length > 0)
+				column = Math.round(
+					parentColumns.reduce((a, c, i) => a + c * columnWeights[i], 0) / totalWeight
+				);
 
 			branchMap.set(node.oid, column);
 			node.x = column * COLUMN_WIDTH + COLUMN_WIDTH / 2;
 			node.y = i * NODE_HEIGHT;
-		}); 
 
-		// Set initial view position
-		//transform = d3.zoomIdentity.translate(0, -nodes[0].y + height/2);
+			console.log(`Commit ${node.oid.slice(0, 7)}: Column ${column}`);
+		});
+
+
 		quadtree = d3
 			.quadtree<CNode>()
 			.x((d) => d.x)
 			.y((d) => d.y);
 		updateVisibleNodes();
 		updateSpatialIndex();
+
+		console.log('Column mapping:', Array.from(branchMap.entries()));
+		console.log('Available columns:', availableColumns);
+		console.log(
+			'Topological order:',
+			nodes.map((n) => n.oid.slice(0, 7))
+		);
 	}
+
+			/* nodes.forEach((node, i) => {
+			const parentColumns = node.parents
+				.map((p) => branchMap.get(p))
+				.filter((c) => c !== undefined) as number[];
+
+			let column: number;
+
+			// Handle merge commits first
+			if (parentColumns.length > 1) {
+				/* column = Math.round(parentColumns.reduce((a, b) => a + b, 0) / parentColumns.length);
+				availableColumns.push(...parentColumns.filter((c) => c !== column)); **\/
+				// Calculate weighted average based on branch length
+				const columnWeights = parentColumns.map((c) => {
+					const branchNodes = nodes.filter((n) => branchMap.get(n.oid) === c);
+					return branchNodes.length;
+				});
+
+				const totalWeight = columnWeights.reduce((a, b) => a + b, 0);
+				column = Math.round(
+					parentColumns.reduce((a, c, i) => a + c * columnWeights[i], 0) / totalWeight
+				);	
+			}
+			// New branch creation
+			else if (parentColumns.length === 0) {
+				column = availableColumns.length > 0 ? availableColumns.shift()! : maxColumn++;
+			}
+			// Linear commit
+			else {
+				column = parentColumns[0];
+			}
+
+			const mergedColumns = parentColumns.slice(1);
+			availableColumns.push(...mergedColumns);
+			mergedColumns.forEach((c) => {
+				const index = availableColumns.indexOf(c);
+				if (index > -1) availableColumns.splice(index, 1);
+			});
+
+			// Update branch mapping
+			branchMap.set(node.oid, column);
+			node.x = column * COLUMN_WIDTH + COLUMN_WIDTH / 2;
+			node.y = i * NODE_HEIGHT;
+		}); */
 
 	function initZoom() {
 		const zoom = d3
@@ -174,13 +222,19 @@
 		const maxY = -transform.y + viewportHeight + buffer;
 
 		// Get nodes in viewport with buffer
-		visibleNodes = nodes.filter((node) => node.y > minY && node.y < maxY);
+		visibleNodes = nodes.filter((node) => node.y > minY && node.y < maxY).slice(0, 1000);
 	}
 
 	function draw() {
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
 		ctx.save();
 		ctx.translate(transform.x, transform.y);
+
+		/* 		ctx.fillStyle = '#4CAF51';
+  visibleNodes.forEach(node => {
+    ctx.fillRect(node.x - 2, node.y - 2, 4, 4);
+  });
+  return; */
 
 		// Draw grid lines
 		ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
@@ -191,6 +245,12 @@
 			ctx.lineTo(x, -transform.y + viewportHeight);
 			ctx.stroke();
 		}
+
+		ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+		ctx.font = '10px monospace';
+		nodes.forEach((node) => {
+			ctx.fillText(`${node.oid.slice(0, 3)}`, node.x - 10, node.y + 5);
+		});
 
 		// Draw links
 		ctx.strokeStyle = 'rgba(75, 155, 255, 0.8)';
@@ -219,6 +279,14 @@
 			ctx.fill();
 		});
 
+		// Draw column numbers
+		ctx.fillStyle = 'white';
+		ctx.font = '12px monospace';
+		Array.from(new Set(visibleNodes.map((n) => n.x))).forEach((x) => {
+			const col = Math.round((x - COLUMN_WIDTH / 2) / COLUMN_WIDTH);
+			ctx.fillText(`Col ${col}`, x - 20, -transform.y + 20);
+		});
+
 		ctx.restore();
 	}
 
@@ -238,7 +306,7 @@
 			y: inverted[1] + transform.y
 		}); */
 
-		hoveredCommit = quadtree.find(inverted[0], inverted[1], 15 * 2)!;
+		hoveredCommit = quadtree.find(inverted[0], inverted[1], 15 * 3)!;
 	}
 	/* function getTooltipPosition(node: CNode) {
 		const TOOLTIP_WIDTH = 300;
@@ -259,14 +327,14 @@
 	} */
 
 	function getTooltipPosition(node: CNode) {
-    const TOOLTIP_OFFSET = 15;
-    const canvasRect = canvas.getBoundingClientRect();
-    
-    return {
-      left: node.x + transform.x + canvasRect.left + TOOLTIP_OFFSET,
-      top: node.y + transform.y + canvasRect.top + TOOLTIP_OFFSET
-    };
-  }
+		const TOOLTIP_OFFSET = 15;
+		const canvasRect = canvas.getBoundingClientRect();
+
+		return {
+			left: node.x + transform.x + canvasRect.left + TOOLTIP_OFFSET,
+			top: node.y + transform.y + canvasRect.top + TOOLTIP_OFFSET
+		};
+	}
 	onDestroy(() => {
 		canvas.removeEventListener('mousemove', handleMouseMove);
 	});
