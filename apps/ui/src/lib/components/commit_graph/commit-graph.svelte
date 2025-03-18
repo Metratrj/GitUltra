@@ -252,51 +252,36 @@
 			ctx.stroke();
 		}
 
-		ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-		ctx.font = '10px monospace';
-		nodes.forEach((node) => {
-			ctx.fillText(`${node.oid.slice(0, 3)}`, node.x - 10, node.y + 5);
-		});
+		// Draw branches with different colors
+		branches.forEach((branch) => {
+			const startNode = nodes.find((n) => n.id === branch.start)!;
+			const endNode = nodes.find((n) => n.id === branch.end)!;
 
-		// Draw vertical branch lines
-		ctx.strokeStyle = 'rgba(255, 0, 0, 0.6)';
-		ctx.lineWidth = 2;
-		nodes.forEach((node) => {
+			ctx.strokeStyle = branch.color;
+			ctx.lineWidth = 2;
 			ctx.beginPath();
-			ctx.moveTo(node.x, node.y);
-			node.parents.forEach((parentId) => {
-				const parent = nodes.find((n) => n.id === parentId);
-				if (parent) {
-					ctx.lineTo(parent.x, parent.y);
-				}
-			});
+			ctx.moveTo(startNode.x, startNode.y);
+			ctx.lineTo(endNode.x, endNode.y);
 			ctx.stroke();
 		});
 
 		// Draw links
 		ctx.strokeStyle = 'rgba(75, 155, 255, 0.8)';
 		ctx.lineWidth = 2;
-
-		const visibleIds = new Set(visibleNodes.map((n) => n.oid));
-		const visibleLinks = links.filter(
-			(link) => visibleIds.has(link.source) || visibleIds.has(link.target)
-		);
-		visibleLinks.forEach((link) => {
+		links.forEach((link) => {
 			const source = nodes.find((n) => n.id === link.source)!;
 			const target = nodes.find((n) => n.id === link.target)!;
-			if (visibleNodes.includes(source) || visibleNodes.includes(target)) {
-				ctx.beginPath();
-				ctx.moveTo(source.x, source.y);
-				ctx.lineTo(target.x, target.y);
-				ctx.stroke();
-			}
+			ctx.beginPath();
+			ctx.moveTo(source.x, source.y);
+			ctx.lineTo(target.x, target.y);
+			ctx.stroke();
 		});
 
 		// Draw nodes
 		ctx.fillStyle = '#4CAF51';
-		visibleNodes.forEach((node) => {
+		nodes.forEach((node) => {
 			ctx.beginPath();
-			ctx.arc(node.x!, node.y!, 15, 0, 2 * Math.PI);
+			ctx.arc(node.x, node.y, 5, 0, 2 * Math.PI);
 			ctx.fill();
 		});
 
@@ -309,26 +294,6 @@
 				ctx.arc(node.x, node.y, 8, 0, 2 * Math.PI);
 				ctx.fill();
 			});
-
-		// Draw column numbers
-		ctx.fillStyle = 'white';
-		ctx.font = '12px monospace';
-		Array.from(new Set(visibleNodes.map((n) => n.x))).forEach((x) => {
-			const col = Math.round((x - COLUMN_WIDTH / 2) / COLUMN_WIDTH);
-			ctx.fillText(`Col ${col}`, x - 20, -transform.y + 20);
-		});
-
-		// Draw branches with different colors
-		branches.forEach((branch) => {
-			const startNode = nodes.find((n) => n.id === branch.start)!;
-			const endNode = nodes.find((n) => n.id === branch.end)!;
-
-			ctx.strokeStyle = branch.color;
-			ctx.beginPath();
-			ctx.moveTo(startNode.x, startNode.y);
-			ctx.lineTo(endNode.x, endNode.y);
-			ctx.stroke();
-		});
 
 		ctx.restore();
 	}
