@@ -23,6 +23,11 @@
 	let hoveredCommit: CNode | null = null;
 	let loading = true;
 
+	let viewportHeight = 0;
+	const NODE_HEIGHT = 50;
+	const COLUMN_WIDTH = 100;
+	let visibleNodes: CNode[] = [];
+
 	onMount(async () => {
 		if (!canvas) {
 			console.error('Canvas element not found');
@@ -43,7 +48,8 @@
 		nodes = resp.data.map((commit) => ({
 			...commit,
 			id: commit.oid,
-			x: 0, y: 0
+			x: 0,
+			y: 0
 		}));
 
 		links = resp.data.flatMap((commit) =>
@@ -81,7 +87,7 @@
 	});
 
 	function initSimulation(width: number, height: number) {
-		const nodeSpacing = width / (nodes.length + 1);
+		const nodeSpacing = height / 25;
 
 		// Position nodes in a straight horizontal line
 		nodes.forEach((node, i) => {
@@ -93,25 +99,76 @@
 
 		// no simulation needed
 		draw();
+
+		viewportHeight = height;
+
+		// Grid layout algorith
+		const columns = new Map<string, number>(); // branch name -> column index
+		let currentColumn = 0;
+
+
+		nodes.forEach((node, i) => {
+			const isMerge = node.parents.length > 1;
+			const isBranchStart = node.parents.length === 0;
+
+			if (isBranchStart) {
+				currentColumn++;
+				columns.set(node.id, currentColumn);
+			}
+
+			// Assign grid position
+			node.x = (columns.get(node.id) || 1) * COLUMN_WIDTH;
+			node.y = i * NODE_HEIGHT;
+
+			if (isMerge) {
+				const parentColumns = node.parents.map(p => columns.get(p)!);
+				node.x = parentColumns.reduce((a, b) => a + b, 0) / parentColumns.length * COLUMN_WIDTH;
+			}
+		});
+		// Set initial view position
+		transform = d3.zoomIdentity.translate(0, -nodes[0].y + height/2);
+		updateVisibleNodes();
 	}
 
 	function initZoom() {
 		const zoom = d3
 			.zoom<HTMLCanvasElement, unknown>()
-			.scaleExtent([0.1, 8])
+			.scaleExtent([1, 1])
 			.on('zoom', (event) => {
-				transform = event.transform;
+				// Constrain to verical movement only
+				transform = d3.zoomIdentity.translate(0, event.transform.y).scale(1);
+				updateVisibleNodes();
 				draw();
 			});
 
 		d3.select<HTMLCanvasElement, unknown>(canvas).call(zoom).call(zoom.transform, d3.zoomIdentity);
 	}
 
+	function updateVisibleNodes() {
+		// Calculate visible Y range
+		const minY = -transform.y;
+		const maxY = minY + viewportHeight;
+
+		// Get nodes in viewport with buffer
+		visibleNodes = nodes.filter(
+			(node) => node.y > minY - NODE_HEIGHT * 2 && node.y < maxY + NODE_HEIGHT * 2
+		);
+	}
+
 	function draw() {
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
 		ctx.save();
 		ctx.translate(transform.x, transform.y);
-		ctx.scale(transform.k, transform.k);
+
+		// Draw grid lines
+		ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+		ctx.lineWidth = 1;
+		for (let x = COLUMN_WIDTH; x < canvas.width; x += COLUMN_WIDTH) {
+			ctx.beginPath();
+			ctx.moveTo(x, -transform.y);
+			ctx.lineTo(x, -transform.y + viewportHeight);
+			ctx.stroke();
+		}
 
 		// Draw links
 		ctx.strokeStyle = 'rgba(75, 155, 255, 0.8)';
@@ -119,17 +176,19 @@
 		links.forEach((link) => {
 			const source = nodes.find((n) => n.id === link.source)!;
 			const target = nodes.find((n) => n.id === link.target)!;
-			ctx.beginPath();
-			ctx.moveTo(source.x, source.y);
-			ctx.lineTo(target.x, target.y);
-			ctx.stroke();
+			if (visibleNodes.includes(source) || visibleNodes.includes(target)) {
+				ctx.beginPath();
+				ctx.moveTo(source.x, source.y);
+				ctx.lineTo(target.x, target.y);
+				ctx.stroke();
+			}
 		});
 
 		// Draw nodes
 		ctx.fillStyle = '#4CAF51';
-		nodes.forEach((node) => {
+		visibleNodes.forEach((node) => {
 			ctx.beginPath();
-			ctx.arc(node.x!, node.y!, 3, 0, 2 * Math.PI);
+			ctx.arc(node.x!, node.y!, 5, 0, 2 * Math.PI);
 			ctx.fill();
 		});
 
