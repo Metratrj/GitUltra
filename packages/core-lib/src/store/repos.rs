@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use log::info;
 use tauri::App;
 use tauri::AppHandle;
 use tauri::Manager;
@@ -37,7 +38,7 @@ pub fn remove_repo<T: tauri::Runtime>(app: &AppHandle<T>, path: &Path) {
     }
 }
 
-pub fn add_repo<T: tauri::Runtime>(app: &AppHandle<T>, path: &Path) {
+pub fn add_repo<T: tauri::Runtime>(app: &AppHandle<T>, path: &Path) -> String {
     let store = app
         .get_store(GITULTRA_TAURI_STORE)
         .expect("Store should already be loaded or created");
@@ -48,8 +49,10 @@ pub fn add_repo<T: tauri::Runtime>(app: &AppHandle<T>, path: &Path) {
             unexpected_type => panic!("Invalid value type: {}", unexpected_type),
         };
         stored_repos_obj.push(JsonValue::String(path.to_str().unwrap().to_string()));
-
+        stored_repos_obj.dedup();
+        info!("stored_repos_obj: {:?}", stored_repos_obj);
         store.set(GITULTRA_LOADED_REPOS, JsonValue::Array(stored_repos_obj));
+        path.to_str().unwrap().to_string()
     } else {
         // create key-value with json array
         store.set(
@@ -57,5 +60,6 @@ pub fn add_repo<T: tauri::Runtime>(app: &AppHandle<T>, path: &Path) {
             // need to convert this ugly shit
             JsonValue::Array(vec![JsonValue::String(path.to_str().unwrap().to_string())]),
         );
+        path.to_str().unwrap().to_string()
     }
 }

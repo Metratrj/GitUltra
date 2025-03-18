@@ -25,7 +25,7 @@ pub fn enable_shortcut(app: &App) {
         .expect("Creating the store failed");
 
     // Use stored shortcut or default shortcut
-    if let Some(stored_shortcut) = store.get(GITULTRA_GLOBAL_SHORTCUTS) {
+    /* if let Some(stored_shortcut) = store.get(GITULTRA_GLOBAL_SHORTCUTS) {
         let stored_shortcut_str = match stored_shortcut {
             JsonValue::String(str) => str,
             unexpected_type => panic!("Invalid shortcut value type: {}", unexpected_type),
@@ -47,7 +47,7 @@ pub fn enable_shortcut(app: &App) {
             .expect("Default shortcut should be valid");
         _register_shortcut_upon_start(app, default_shortcut);
     }
-}
+ */}
 
 /// Get the current stored shortcut as a string
 #[tauri::command]

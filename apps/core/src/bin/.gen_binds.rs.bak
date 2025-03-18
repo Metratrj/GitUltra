@@ -1,0 +1,13 @@
+pub fn main() {
+    let builder = app_lib::get_builder();
+
+    builder
+        .export(
+            specta_typescript::Typescript::default()
+                .formatter(specta_typescript::formatter::prettier)
+                .header("/* eslint-disable */\n// @ts-nocheck")
+                .bigint(specta_typescript::BigIntExportBehavior::Number),
+            "../../packages/schemas/ts/gitultra/bindings.ts",
+        )
+        .expect("Failed to export typescript bindings");
+}

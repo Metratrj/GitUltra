@@ -9,32 +9,12 @@ export const commands = {
 async greet(name: string) : Promise<string> {
     return await TAURI_INVOKE("greet", { name });
 },
-async openRepoDirectory(path: string) : Promise<string> {
+async openRepoDirectory(path: string) : Promise<string[]> {
     return await TAURI_INVOKE("open_repo_directory", { path });
 },
-/**
- * Unregister the current shortcut in Tauri
- */
-async unregisterShortcut() : Promise<void> {
-    await TAURI_INVOKE("unregister_shortcut");
-},
-/**
- * Change the global shortcut
- */
-async changeShortcut(key: string) : Promise<Result<null, string>> {
+async getCommitGraph(path: string) : Promise<Result<CommitNode[], string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("change_shortcut", { key }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-/**
- * Get the current stored shortcut as a string
- */
-async getCurrentShortcut() : Promise<Result<string, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("get_current_shortcut") };
+    return { status: "ok", data: await TAURI_INVOKE("get_commit_graph", { path }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -52,7 +32,7 @@ async getCurrentShortcut() : Promise<Result<string, string>> {
 
 /** user-defined types **/
 
-
+export type CommitNode = { oid: string; author: string; message: string; parents: string[]; timestamp: number }
 
 /** tauri-specta globals **/
 

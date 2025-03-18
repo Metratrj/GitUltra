@@ -1,75 +1,40 @@
 #![cfg_attr(all(not(debug_assertions), target_os = "windows"), windows_subsystem = "windows")]
 
-// use specta_typescript::Typescript;
-use std::path::PathBuf;
-use tauri::App;
-use tauri::AppHandle;
-use tauri::Manager;
-use tauri::Runtime;
+use tauri_plugin_store::StoreExt;
 use tauri_specta::{collect_commands, Builder};
 
-mod shortcuts;
+// mod shortcuts;
+pub mod commands;
 
-#[tauri::command]
-#[specta::specta]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
+const GITULTRA_TAURI_STORE: &str = "gitultra-tauri-store";
 
-#[tauri::command]
-#[specta::specta]
-fn open_repo_directory<T: Runtime>(app: AppHandle<T>, path: PathBuf) -> String {
-    println!("Opening repo directory: {:?}", path);
-
-    let repo = match core_lib::git::open_repo(&path) {
-        Ok(repo) => repo,
-        Err(e) => {
-            return format!("Failed to open repo: {:?}", e);
-        }
-    };
-
-    println!("Repo opened: {:?}", repo.path());
-    println!("Repo directory name: {:?}", repo.path().parent().unwrap().file_name());
-
-    core_lib::store::repos::add_repo(&app, &path);
-    println!("Loaded Repos: {:?}", core_lib::store::repos::get_repos(&app));
-
-    /* let branches = core_lib::git::get_branches(&repo);
-    for branch in branches {
-        println!("branch: {:?}", branch.name().unwrap());
-    }
-
-    let commits = core_lib::git::get_commits(&repo);
-    for commit in commits {
-        println!("commit: {:?}", commit.message().unwrap());
-    } */
-
-    "Ok".to_string()
+pub fn get_builder() -> Builder {
+    Builder::<tauri::Wry>::new().commands(collect_commands![
+        commands::greet,
+        commands::open_repo_directory::<tauri::Wry>,
+        commands::get_commit_graph::<tauri::Wry>,
+        /*         shortcuts::unregister_shortcut::<tauri::Wry>,
+        shortcuts::change_shortcut::<tauri::Wry>,
+        shortcuts::get_current_shortcut::<tauri::Wry>, */
+    ])
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let builder = Builder::<tauri::Wry>::new().commands(collect_commands![
-        greet,
-        open_repo_directory::<tauri::Wry>,
-        shortcuts::unregister_shortcut::<tauri::Wry>,
-        shortcuts::change_shortcut::<tauri::Wry>,
-        shortcuts::get_current_shortcut::<tauri::Wry>,
-    ]);
+    let builder = get_builder();
 
-    /* #[cfg(debug_assertions)]
+    /* 
+    #[cfg(debug_assertions)]
     builder
         .export(
             specta_typescript::Typescript::default()
                 .formatter(specta_typescript::formatter::prettier)
-                .header("/* eslint-disable */\n// @ts-nocheck"),
+                .header("/* eslint-disable */\n// @ts-nocheck")
+                .bigint(specta_typescript::BigIntExportBehavior::Number),
             "../../packages/schemas/ts/gitultra/bindings.ts",
         )
-        .expect("Failed to export typescript bindings"); */
-    
-
-
-
+        .expect("Failed to export typescript bindings");
+ */
     tauri::Builder::default()
         //.plugin(tauri_plugin_cli::init())
         //.plugin(tauri_plugin_opener::init())
@@ -114,7 +79,9 @@ pub fn run() {
                            app.global_shortcut().register(ctrl_n_shortcut)?;
                        }
             */
-            shortcuts::enable_shortcut(app);
+
+            app.store(GITULTRA_TAURI_STORE).expect("Creating the store failed");
+            //shortcuts::enable_shortcut(app);
 
             Ok(())
         })

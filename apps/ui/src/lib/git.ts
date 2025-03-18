@@ -14,5 +14,5 @@ export async function loadRepo() {
         return;
     }
 
-    await commands.openRepoDirectory(dir);
+    return await commands.openRepoDirectory(dir);
 }

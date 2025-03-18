@@ -15,11 +15,11 @@
 	};
 
 	let tabs: MenuTab[] = [
-		{
+		/* 		{
 			name: '',
 			href: '/',
 			icon: Package2
-		},
+		}, */
 		{
 			name: 'Home',
 			href: '/home'
@@ -49,18 +49,36 @@
 		onClick(value);
 	}
 
-	export function handleAdd() {
-		console.log('Add Repo');
-		loadRepo();
+	async function reload_loaded_repos() {
+		const store = await load('gitultra-tauri-store');
+		const values = await store.get<[string]>('gitultra-loaded-repos');
+		console.log(values);
+		if (!values) return;
+		values.forEach((path) => {
+			const name = path.split('/').pop();
+			if (!name) return;
+			registerTab({ name });
+		});
+	}
+
+	export async function handleAdd(event: Event) {
+		event.preventDefault();
+		console.info('Add Repo');
+
+		let ret = await loadRepo();
+		if (!ret) return;
+		if (!Array.isArray(ret) || ret.length === 0) return;
+		const path = ret[0];
+		const name = path.split('/').pop();
+		if (!name) return;
+		registerTab({ name });
 	}
 
 	import { onMount } from 'svelte';
-    import { load } from '@tauri-apps/plugin-store';
-	
-    onMount(async () => {
-        const store = await load("gitultra-tauri-store");
-        const values = await store.get("gitultra-loaded-repos");
-        console.log(values);
+	import { load } from '@tauri-apps/plugin-store';
+
+	onMount(async () => {
+		reload_loaded_repos();
 	});
 </script>
 
@@ -75,7 +93,7 @@
 				{tab.name}
 			</Tabs.Trigger>
 		{/each}
-		<Tabs.Trigger value="add" on:click={() => handleAdd()}>
+		<Tabs.Trigger value="add" on:click={handleAdd}>
 			<Plus class="h-5 w-5" />
 		</Tabs.Trigger>
 	</Tabs.List>

@@ -32,17 +32,17 @@
 				<Package2 class="h-6 w-6" />
 				<span class="sr-only">Acme Inc</span>
 			</a>
-			<a href="/home" class="text-foreground hover:text-foreground transition-colors"> Home </a>
+			<!-- <a href="/home" class="text-foreground hover:text-foreground transition-colors"> Home </a>
 			<a href="/music" class="text-muted-foreground hover:text-foreground transition-colors">
 				Repos
 			</a>
 			<a href="/dashboard" class="text-muted-foreground hover:text-foreground transition-colors">
 				lorem_ipsum
-			</a>
+			</a> -->
 
 			<RepoTabs bind:value={activeTab} />
 		</nav>
-		<Sheet.Root>
+		<!-- <Sheet.Root>
 			<Sheet.Trigger asChild let:builder>
 				<Button variant="outline" size="icon" class="shrink-0 md:hidden" builders={[builder]}>
 					<MenuIcon class="h-5 w-5" />
@@ -60,7 +60,7 @@
 					<a href="##" class="text-muted-foreground hover:text-foreground"> lorem_ipsum </a>
 				</nav>
 			</Sheet.Content>
-		</Sheet.Root>
+		</Sheet.Root> -->
 		<div class="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
 			<form class="ml-auto flex-1 sm:flex-initial">
 				<div class="relative">
