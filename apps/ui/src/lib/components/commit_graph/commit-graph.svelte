@@ -170,7 +170,7 @@
 	function initSimulation(width: number, height: number) {
 		viewportHeight = height;
 		const availableColumns: number[] = [];
-		const branchMap = new Map<string, number>();
+		const branchMap = new Map<string, number>(); // commit ID -> column
 		const activeBranches = new Map<number, string>(); // column -> head commit
 		let maxColumn = 0;
 
@@ -183,19 +183,10 @@
 			});
 		});
 
-		console.log(
-			'Child Map:',
-			Array.from(childMap.entries()).map(([parent, children]) => ({
-				parent: parent.slice(0, 7),
-				children: children.map((c) => c.slice(0, 7))
-			}))
-		);
-
 		// Process nodes in reverse topological order (oldest first)
-		const processedNodes = [...nodes];
+		const processedNodes = [...nodes].reverse();
 
-		processedNodes.forEach((node, i) => {
-
+		processedNodes.forEach((node) => {
 			const children = childMap.get(node.id) || [];
 			const parentColumns = node.parents
 				.filter((p) => branchMap.has(p))
@@ -205,6 +196,7 @@
 
 			// Merge commit handling
 			if (parentColumns.length > 1) {
+				// Place merge commit in the average column of its parents
 				column = Math.round(parentColumns.reduce((a, b) => a + b, 0) / parentColumns.length);
 
 				// Free merged columns
@@ -220,9 +212,10 @@
 				column = branchMap.get(node.id) ?? availableColumns.pop() ?? maxColumn++;
 
 				// Assign new columns to additional children
-				children.slice(1).forEach(() => {
+				children.slice(1).forEach((child) => {
 					const newCol = availableColumns.pop() ?? maxColumn++;
-					activeBranches.set(newCol, node.id);
+					branchMap.set(child, newCol);
+					activeBranches.set(newCol, child);
 				});
 			}
 			// New branch creation
@@ -238,43 +231,12 @@
 			branchMap.set(node.id, column);
 			activeBranches.set(column, node.id);
 			node.x = column * COLUMN_WIDTH + COLUMN_WIDTH / 2;
-			node.y = i * NODE_HEIGHT;
+			node.y = nodes.indexOf(node) * NODE_HEIGHT;
 
 			console.log(`Commit ${node.id.slice(0, 7)}: Column ${column}`);
 			console.log('Parent columns:', parentColumns);
 			console.log('Available columns:', availableColumns);
 		});
-
-		/* 	function detectBranches(_childMap: Map<string, string[]>, arrNodes: CNode[]) {
-			const branchStarts = new Map<string, string>();
-			const branchEnds = new Map<string, string>();
-
-			// return;
-			arrNodes.forEach((node) => {
-				if (node.parents.length > 1) {
-					// Merge point
-					node.parents.forEach((parent) => {
-						if (!branchEnds.has(parent)) branchEnds.set(parent, node.id);
-					});
-				}
-				if (_childMap.has(node.id) && _childMap.get(node.id)?.length > 1) {
-					// Branch point
-					_childMap.get(node.id)!.forEach((child) => {
-						if (!branchStarts.has(child)) {
-							branchStarts.set(child, node.id);
-						}
-					});
-				}
-			});
-
-			// Generate branch objects
-			branches = Array.from(branchStarts.entries()).map(([end, start]) => ({
-				id: `${start}-${end}`,
-				start,
-				end,
-				color: `hsl(${Math.random() * 360}, 70%, 50%)`
-			}));
-		} */
 
 		detectBranches();
 		updateVisibleNodes();
