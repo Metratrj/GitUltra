@@ -6,8 +6,8 @@
 	export let repo_name: string;
 
 	type _CNode = CommitNode & {
-		x?: number;
-		y?: number;
+		x: number;
+		y: number;
 		fx?: number | null;
 		fy?: number | null;
 		id: string;
@@ -42,7 +42,8 @@
 		if (resp.status != 'ok') return;
 		nodes = resp.data.map((commit) => ({
 			...commit,
-			id: commit.oid
+			id: commit.oid,
+			x: 0, y: 0
 		}));
 
 		links = resp.data.flatMap((commit) =>
@@ -80,66 +81,18 @@
 	});
 
 	function initSimulation(width: number, height: number) {
-		const nodeSpacing = width / (nodes.length +1);
+		const nodeSpacing = width / (nodes.length + 1);
 
 		// Position nodes in a straight horizontal line
 		nodes.forEach((node, i) => {
-			node.x = nodeSpacing * (i + 1); // Evenly spaced along the X-axis
-			node.y = height / 2; // centered vertically
+			node.x = height / 2; // centered vertically
+			node.y = nodeSpacing * (i + 1); // Evenly spaced along the X-axis
 			node.fx = node.x; // fix x position
 			node.fy = node.y; // fix y position
 		});
 
 		// no simulation needed
 		draw();
-
-		/* const resolvedLinks = links
-			.map((link) => ({
-				source: nodes.find((n) => n.id == link.source)!,
-				target: nodes.find((n) => n.id == link.target)!
-			}))
-			.filter((link) => link.source && link.target);
-
-		const CHARGE_STRENGTH = -60; // reduce repulsion
-		const LINK_DISTANCE = 100; // shorter links
-		const FORCE_X_STRENGTH = 0.2; // stronger horizontal alignment
-		const FORCE_Y_STRENGTH = 0.2; // stronger vertical alignment (hierachy)
-		const COLLISION_RADIUS = 12; // prevent node overlap
-
-		timestamps = nodes.map((n) => n.timestamp);
-		minTimestamp = Math.min(...timestamps);
-		maxTimestamp = Math.max(...timestamps);
-		const maxY = height * 0.8;
-
-		simulation = d3
-			.forceSimulation<CNode>(nodes)
-			.force('charge', d3.forceManyBody<CNode>().strength(CHARGE_STRENGTH).distanceMax(300))
-			.force('link', d3.forceLink(resolvedLinks).distance(LINK_DISTANCE).strength(0.8))
-			.force('center', d3.forceCenter(width / 2, height / 2))
-			.force('x', d3.forceX(width / 2).strength(FORCE_X_STRENGTH)) // Weaker horizontal alignment
-			.force(
-				'y',
-				d3
-					.forceY<CNode>((d) => {
-						//height / 2
-						return maxY - ((d.timestamp - minTimestamp) * maxY) / (maxTimestamp - minTimestamp);
-					})
-					.strength(FORCE_Y_STRENGTH)
-			) // Weaker vertical alignment
-			.force('collision', d3.forceCollide(COLLISION_RADIUS))
-			.alphaDecay(0.1)
-			.alphaTarget(0.01)
-			.on('tick', draw);
-
-		nodes.forEach((node, i) => {
-			node.x = width / 2 + (Math.random() - 0.5) * 50;
-			node.y = height * 0.1 + i * 2;
-		});
-
-		// Warmup simulation
-		simulation.stop();
-		for (let i = 0; i < 300; i++) simulation.tick();
-		simulation.restart(); */
 	}
 
 	function initZoom() {
@@ -164,25 +117,16 @@
 		ctx.strokeStyle = 'rgba(75, 155, 255, 0.8)';
 		ctx.lineWidth = 2;
 		links.forEach((link) => {
-			const source = nodes.find((n) => n.id === link.source);
-			const target = nodes.find((n) => n.id === link.target);
-			if (
-				source &&
-				target &&
-				source.x !== undefined &&
-				source.y !== undefined &&
-				target.x !== undefined &&
-				target.y !== undefined
-			) {
-				ctx.beginPath();
-				ctx.moveTo(source.x, source.y);
-				ctx.lineTo(target.x, target.y);
-				ctx.stroke();
-			}
+			const source = nodes.find((n) => n.id === link.source)!;
+			const target = nodes.find((n) => n.id === link.target)!;
+			ctx.beginPath();
+			ctx.moveTo(source.x, source.y);
+			ctx.lineTo(target.x, target.y);
+			ctx.stroke();
 		});
 
 		// Draw nodes
-		ctx.fillStyle = '#4CAF50';
+		ctx.fillStyle = '#4CAF51';
 		nodes.forEach((node) => {
 			ctx.beginPath();
 			ctx.arc(node.x!, node.y!, 3, 0, 2 * Math.PI);
