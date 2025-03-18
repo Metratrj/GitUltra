@@ -175,11 +175,6 @@
 		const activeBranches = new Map<number, string>(); // column -> head commit
 		let maxColumn = 0;
 
-		// Explicit main branch tracking
-		let mainBranchHead = nodes[0]?.id;
-		let currentMainColumn = 0;
-		branchMap.set(nodes[0]?.id, currentMainColumn);
-
 		// Build child map for branch detection
 		const childMap = new Map<string, string[]>();
 		nodes.forEach((node) => {
@@ -189,76 +184,12 @@
 			});
 		});
 
-		// Process nodes in reverse topological order
-		const processedNodes = [...nodes];
+		// Process nodes in reverse topological order (oldest first)
+		const processedNodes = [...nodes].reverse();
 
-		processedNodes.forEach((node, index) => {
+		processedNodes.forEach((node) => {
 			const children = childMap.get(node.id) || [];
-			const parentColumns = node.parents
-				.filter((p) => branchMap.has(p))
-				.map((p) => branchMap.get(p)!);
-
-			let column: number;
-
-			// Main branch detection
-			if (index === 0) {
-				// First commit always in main column
-				column = currentMainColumn;
-				mainBranchHead = node.id;
-			}
-			// Merge handling (multiple parents)
-			else if (parentColumns.length > 1) {
-				// Prioritize merging to main branch
-				if (parentColumns.includes(currentMainColumn)) {
-					column = currentMainColumn;
-					// Free other columns
-					parentColumns
-						.filter((c) => c !== currentMainColumn)
-						.forEach((c) => {
-							availableColumns.push(c);
-							activeBranches.delete(c);
-						});
-				} else {
-					column = Math.round(parentColumns.reduce((a, b) => a + b) / parentColumns.length);
-				}
-			}
-			// Branch creation (multiple children)
-			else if (children.length > 1) {
-				// Main branch continues in current column
-				column = currentMainColumn;
-
-				// Create new branches for additional children
-				children.slice(1).forEach((child) => {
-					const newCol =
-						availableColumns.length > 0
-							? Math.min(...availableColumns)
-							: Math.max(...Array.from(activeBranches.keys())) + 1;
-
-					availableColumns.splice(availableColumns.indexOf(newCol), 1);
-					activeBranches.set(newCol, child);
-					branchMap.set(child, newCol);
-				});
-			}
-			// Linear progression
-			else {
-				column = parentColumns[0] ?? currentMainColumn;
-			}
-
-			// Update main branch tracking
-			if (column === currentMainColumn) {
-				mainBranchHead = node.id;
-			}
-
-			// Assign positions
-			branchMap.set(node.id, column);
-			activeBranches.set(column, node.id);
-			node.x = column * COLUMN_WIDTH + COLUMN_WIDTH / 2;
-			node.y = index * NODE_HEIGHT;
-
-			console.log(`Commit ${node.id.slice(0, 7)}: Column ${column}`);
-		});
-		/* processedNodes.forEach((node) => {
-			const children = childMap.get(node.id) || [];
+			
 			const parentColumns = node.parents
 				.filter((p) => branchMap.has(p))
 				.map((p) => branchMap.get(p)!);
@@ -307,7 +238,7 @@
 			console.log(`Commit ${node.id.slice(0, 7)}: Column ${column}`);
 			console.log('Parent columns:', parentColumns);
 			console.log('Available columns:', availableColumns);
-		}); */
+		});
 
 		detectBranches();
 		updateVisibleNodes();
@@ -418,18 +349,20 @@
 
 		// Draw merge connections
 		ctx.strokeStyle = '#FF5722';
-  ctx.lineWidth = 2;
-  nodes.filter(n => n.parents.length > 1).forEach(node => {
-    node.parents.forEach(parentId => {
-      const parent = nodes.find(n => n.id === parentId)!;
-      if (branchMap.get(parentId)! !== branchMap.get(node.id)!) {
-        ctx.beginPath();
-        ctx.moveTo(parent.x, parent.y);
-        ctx.lineTo(node.x, node.y);
-        ctx.stroke();
-      }
-    });
-  });
+		ctx.lineWidth = 2;
+		nodes
+			.filter((n) => n.parents.length > 1)
+			.forEach((node) => {
+				node.parents.forEach((parentId) => {
+					const parent = nodes.find((n) => n.id === parentId)!;
+					if (branchMap.get(parentId)! !== branchMap.get(node.id)!) {
+						ctx.beginPath();
+						ctx.moveTo(parent.x, parent.y);
+						ctx.lineTo(node.x, node.y);
+						ctx.stroke();
+					}
+				});
+			});
 
 		ctx.restore();
 	}
