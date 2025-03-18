@@ -17,7 +17,6 @@
 
 	let canvas: HTMLCanvasElement;
 	let ctx: CanvasRenderingContext2D;
-	let simulation: d3.Simulation<CNode, undefined>;
 	let transform = d3.zoomIdentity;
 	let nodes: CNode[] = [];
 	let links: Array<{ source: string; target: string }> = [];
@@ -54,10 +53,19 @@
 		);
 		console.log('Nodes:', nodes);
 		console.log('Links:', links);
+
+		// Check for invalid links
+		const invalidLinks = links.filter(
+			(link) => !nodes.some((n) => n.id === link.source) || !nodes.some((n) => n.id === link.target)
+		);
+
+		if (invalidLinks.length > 0) {
+			console.warn('Invalid links:', invalidLinks);
+		}
+
 		loading = false;
 
 		// Setup canvas
-
 		const width = (canvas.width = canvas.offsetWidth);
 		const height = (canvas.height = canvas.offsetHeight);
 
@@ -72,23 +80,66 @@
 	});
 
 	function initSimulation(width: number, height: number) {
+		const nodeSpacing = width / (nodes.length +1);
+
+		// Position nodes in a straight horizontal line
+		nodes.forEach((node, i) => {
+			node.x = nodeSpacing * (i + 1); // Evenly spaced along the X-axis
+			node.y = height / 2; // centered vertically
+			node.fx = node.x; // fix x position
+			node.fy = node.y; // fix y position
+		});
+
+		// no simulation needed
+		draw();
+
+		/* const resolvedLinks = links
+			.map((link) => ({
+				source: nodes.find((n) => n.id == link.source)!,
+				target: nodes.find((n) => n.id == link.target)!
+			}))
+			.filter((link) => link.source && link.target);
+
+		const CHARGE_STRENGTH = -60; // reduce repulsion
+		const LINK_DISTANCE = 100; // shorter links
+		const FORCE_X_STRENGTH = 0.2; // stronger horizontal alignment
+		const FORCE_Y_STRENGTH = 0.2; // stronger vertical alignment (hierachy)
+		const COLLISION_RADIUS = 12; // prevent node overlap
+
+		timestamps = nodes.map((n) => n.timestamp);
+		minTimestamp = Math.min(...timestamps);
+		maxTimestamp = Math.max(...timestamps);
+		const maxY = height * 0.8;
+
 		simulation = d3
 			.forceSimulation<CNode>(nodes)
-			.force('charge', d3.forceManyBody<CNode>().strength(-80))
-			.force(
-				'link',
-				d3
-					.forceLink<CNode, { source: string; target: string }>(links)
-					.id((d) => d.id)
-					.distance(150)
-					.strength(0.5)
-			)
+			.force('charge', d3.forceManyBody<CNode>().strength(CHARGE_STRENGTH).distanceMax(300))
+			.force('link', d3.forceLink(resolvedLinks).distance(LINK_DISTANCE).strength(0.8))
 			.force('center', d3.forceCenter(width / 2, height / 2))
-    		.force('x', d3.forceX(width / 2).strength(0.1)) // Horizontal alignment
-    		.force('y', d3.forceY(height / 2).strength(0.1)) // Vertical alignment
-			.force('collision', d3.forceCollide(8))
-			.alphaDecay(0.02)
+			.force('x', d3.forceX(width / 2).strength(FORCE_X_STRENGTH)) // Weaker horizontal alignment
+			.force(
+				'y',
+				d3
+					.forceY<CNode>((d) => {
+						//height / 2
+						return maxY - ((d.timestamp - minTimestamp) * maxY) / (maxTimestamp - minTimestamp);
+					})
+					.strength(FORCE_Y_STRENGTH)
+			) // Weaker vertical alignment
+			.force('collision', d3.forceCollide(COLLISION_RADIUS))
+			.alphaDecay(0.1)
+			.alphaTarget(0.01)
 			.on('tick', draw);
+
+		nodes.forEach((node, i) => {
+			node.x = width / 2 + (Math.random() - 0.5) * 50;
+			node.y = height * 0.1 + i * 2;
+		});
+
+		// Warmup simulation
+		simulation.stop();
+		for (let i = 0; i < 300; i++) simulation.tick();
+		simulation.restart(); */
 	}
 
 	function initZoom() {
@@ -110,15 +161,22 @@
 		ctx.scale(transform.k, transform.k);
 
 		// Draw links
-		ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-		ctx.lineWidth = 1;
+		ctx.strokeStyle = 'rgba(75, 155, 255, 0.8)';
+		ctx.lineWidth = 2;
 		links.forEach((link) => {
 			const source = nodes.find((n) => n.id === link.source);
 			const target = nodes.find((n) => n.id === link.target);
-			if (source && target) {
+			if (
+				source &&
+				target &&
+				source.x !== undefined &&
+				source.y !== undefined &&
+				target.x !== undefined &&
+				target.y !== undefined
+			) {
 				ctx.beginPath();
-				ctx.moveTo(source.x!, source.y!);
-				ctx.lineTo(target.x!, target.y!);
+				ctx.moveTo(source.x, source.y);
+				ctx.lineTo(target.x, target.y);
 				ctx.stroke();
 			}
 		});
@@ -143,7 +201,6 @@
 	}
 
 	onDestroy(() => {
-		simulation?.stop();
 		canvas.removeEventListener('mousemove', handleMouseMove);
 	});
 </script>
@@ -152,15 +209,12 @@
 	<canvas bind:this={canvas} class="graph-canvas"></canvas>
 	{#if loading}
 		<div class="loading">Loading commit graph...</div>
-	{:else}
-		
-		{#if hoveredCommit}
-			<div class="tooltip" style={`left: ${hoveredCommit.x!}px; top: ${hoveredCommit.y!}px`}>
-				<div class="tooltip-header">{hoveredCommit.id.slice(0, 7)}</div>
-				<div class="tooltip-author">{hoveredCommit.author}</div>
-				<div class="tooltip-message">{hoveredCommit.message}</div>
-			</div>
-		{/if}
+	{:else if hoveredCommit}
+		<div class="tooltip" style={`left: ${hoveredCommit.x!}px; top: ${hoveredCommit.y!}px`}>
+			<div class="tooltip-header">{hoveredCommit.id.slice(0, 7)}</div>
+			<div class="tooltip-author">{hoveredCommit.author}</div>
+			<div class="tooltip-message">{hoveredCommit.message}</div>
+		</div>
 	{/if}
 </div>
 
