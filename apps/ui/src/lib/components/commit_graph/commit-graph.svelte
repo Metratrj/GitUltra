@@ -1,221 +1,207 @@
 <script lang="ts">
-	import * as THREE from 'three';
-	import { onMount } from 'svelte';
 	import { commands, type CommitNode } from '@gitultra/schemas/ts/gitultra/bindings';
-	import { CommitGraphLayout } from './graphLayout';
-	import { OrbitControls } from 'three/examples/jsm/Addons.js';
-	import * as Table from '@/components/ui/table'
-
-	let layout: CommitGraphLayout;
-	let canvas: HTMLCanvasElement;
-	let commits: CommitNode[] = [];
-	let renderer: THREE.WebGLRenderer;
-	let scene: THREE.Scene;
-	let camera: THREE.OrthographicCamera;
-	let mesh: THREE.InstancedMesh | null = null;
-	let edges: THREE.LineSegments;
-
-	let hoveredCommit: CommitNode | null = null;
-	let mouseX = 0;
-	let mouseY = 0;
+	import { onDestroy, onMount } from 'svelte';
+	import * as d3 from 'd3';
 
 	export let repo_name: string;
 
-	// Fetch commit data
+	type _CNode = CommitNode & {
+		x?: number;
+		y?: number;
+		fx?: number | null;
+		fy?: number | null;
+		id: string;
+	};
+
+	type CNode = _CNode & d3.SimulationNodeDatum;
+
+	let canvas: HTMLCanvasElement;
+	let ctx: CanvasRenderingContext2D;
+	let simulation: d3.Simulation<CNode, undefined>;
+	let transform = d3.zoomIdentity;
+	let nodes: CNode[] = [];
+	let links: Array<{ source: string; target: string }> = [];
+	let hoveredCommit: CNode | null = null;
+	let loading = true;
+
 	onMount(async () => {
+		if (!canvas) {
+			console.error('Canvas element not found');
+			return;
+		}
+		let tmp_ctx = canvas.getContext('2d');
+		if (!tmp_ctx) {
+			console.error('Failed to get canvas context');
+			return;
+		}
+
+		ctx = tmp_ctx;
+
 		console.info('Loading commit graph for: ', repo_name);
 		let resp = await commands.getCommitGraph(repo_name);
 		console.log(resp);
 		if (resp.status != 'ok') return;
+		nodes = resp.data.map((commit) => ({
+			...commit,
+			id: commit.oid
+		}));
 
-		commits = resp.data;
-		layout = new CommitGraphLayout(commits);
-		initScene();
+		links = resp.data.flatMap((commit) =>
+			commit.parents.map((parent) => ({
+				source: commit.oid,
+				target: parent
+			}))
+		);
+		console.log('Nodes:', nodes);
+		console.log('Links:', links);
+		loading = false;
+
+		// Setup canvas
+
+		const width = (canvas.width = canvas.offsetWidth);
+		const height = (canvas.height = canvas.offsetHeight);
+
+		// Initialize simulation and zoom
+		initSimulation(width, height);
+		initZoom();
+
+		// Hover detection
+		canvas.addEventListener('mousemove', handleMouseMove);
+
+		loading = false;
 	});
 
-	function initScene() {
-		// Set up the scene
-		scene = new THREE.Scene();
-		scene.background = new THREE.Color(0x000000);
-		// Orthographic camera for 2D view
-		const aspect = canvas.offsetWidth / canvas.offsetHeight;
-		const frustumSize = 1000;
-		camera = new THREE.OrthographicCamera(
-			frustumSize * aspect / -2,
-			frustumSize * aspect / 2,
-			frustumSize / 2,
-			frustumSize / -2,
-			1,
-			1000
-		);
-		renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+	function initSimulation(width: number, height: number) {
+		simulation = d3
+			.forceSimulation<CNode>(nodes)
+			.force('charge', d3.forceManyBody<CNode>().strength(-80))
+			.force(
+				'link',
+				d3
+					.forceLink<CNode, { source: string; target: string }>(links)
+					.id((d) => d.id)
+					.distance(150)
+					.strength(0.5)
+			)
+			.force('center', d3.forceCenter(width / 2, height / 2))
+    		.force('x', d3.forceX(width / 2).strength(0.1)) // Horizontal alignment
+    		.force('y', d3.forceY(height / 2).strength(0.1)) // Vertical alignment
+			.force('collision', d3.forceCollide(8))
+			.alphaDecay(0.02)
+			.on('tick', draw);
+	}
 
-		// Camera setup
-		camera.position.z = 5;
-		const controls = new OrbitControls(camera, renderer.domElement);
-		controls.enableDamping = true;
-		controls.dampingFactor = 0.05;
-		controls.enableRotate = false; // Disable 3D rotation
-		controls.minDistance = 50; // Minimum zoom
-		controls.maxDistance = 2000; // Maximum zoom
-
-		// create nodes
-		const positions = layout.positions; // Get computed positions
-		const sphereGeometry = new THREE.SphereGeometry(0.5);
-		// Create circle texture for sprites
-		const createSpriteTexture = (color: number) => {
-			const canvas = document.createElement('canvas');
-			canvas.width = 64;
-			canvas.height = 64;
-			const ctx = canvas.getContext('2d')!;
-			ctx.beginPath();
-			ctx.arc(32, 32, 24, 0, 2 * Math.PI);
-			ctx.fillStyle = `#${color.toString(16).padStart(6, '0')}`;
-			ctx.fill();
-			return new THREE.CanvasTexture(canvas);
-		};
-
-		const material = new THREE.SpriteMaterial({
-			map: createSpriteTexture(0x4caf50),
-			sizeAttenuation: false
-		});
-
-		// Create sprites instead of 3D meshes
-		commits.forEach((commit, i) => {
-			const sprite = new THREE.Sprite(material);
-			const pos = layout.positions.get(commit.oid)!;
-			sprite.position.set(pos.x, pos.y, 0);
-			sprite.scale.set(40, 40, 1);
-			scene.add(sprite);
-		});
-		const dummy = new THREE.Object3D();
-
-		commits.forEach((commit, i) => {
-			const pos = layout.positions.get(commit.oid)!;
-			dummy.position.set(pos.x, pos.y, 0);
-			dummy.updateMatrix();
-			mesh.setMatrixAt(i, dummy.matrix);
-		});
-
-		scene.add(mesh);
-
-		// Create edges
-		const edgeMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, opacity: 0.3 });
-		const edgeGeometry = new THREE.BufferGeometry();
-		const points: THREE.Vector3[] = [];
-
-		commits.forEach((commit) => {
-			commit.parents.forEach((parentOid) => {
-				const start = layout.positions.get(commit.oid)!;
-				const end = layout.positions.get(parentOid)!;
-				points.push(new THREE.Vector3(start.x, start.y, 0));
-				points.push(new THREE.Vector3(end.x, end.y, 0));
+	function initZoom() {
+		const zoom = d3
+			.zoom<HTMLCanvasElement, unknown>()
+			.scaleExtent([0.1, 8])
+			.on('zoom', (event) => {
+				transform = event.transform;
+				draw();
 			});
-		});
 
-		edgeGeometry.setFromPoints(points);
-		edges = new THREE.LineSegments(edgeGeometry, edgeMaterial);
-		scene.add(edges);
-
-		// Lighting
-		const ambientLight = new THREE.AmbientLight(0x404040);
-		const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
-		directionalLight.position.set(1, 1, 1);
-		scene.add(ambientLight, directionalLight);
-
-		/* // Create positions array for Three.js
-		const positionArray = new Float32Array(commits.length * 3);
-		commits.forEach((commit, i) => {
-			const pos = positions.get(commit.oid);
-			if (!pos) return;
-			positionArray[i * 3] = pos.x;
-			positionArray[i * 3 + 1] = pos.y;
-			positionArray[i * 3 + 2] = 0;
-		});
-
-		const geometry = new THREE.InstancedBufferGeometry();
-		geometry.setAttribute('position', new THREE.BufferAttribute(positionArray, 3));
-
-		const count = 50000;
-		let material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
-		const mesh = new THREE.InstancedMesh(geometry, material, count);
-		// Set positions using layout data
-		const dummy = new THREE.Object3D();
-		commits.forEach((commit, i) => {
-			const pos = positions.get(commit.oid);
-			if (!pos) return;
-			dummy.position.set(pos.x, pos.y, 0);
-			dummy.updateMatrix();
-			mesh.setMatrixAt(i, dummy.matrix);
-		});
-
-		scene.add(mesh); */
-
-		// add commit nodes
-		/* commits.forEach((commit, i) => {
-            let geometry = new THREE.SphereGeometry(0.1, 32, 32);
-            let sphere = new THREE.Mesh(geometry, material);
-            sphere.position.set(i * 0.2, 0, 0);
-            scene.add(sphere);
-        }); */
-
-		// animation loop
-		function animate() {
-			requestAnimationFrame(animate);
-			controls.update();
-			renderer.render(scene, camera);
-		}
-
-		animate();
-		window.addEventListener('resize', onResize);
+		d3.select<HTMLCanvasElement, unknown>(canvas).call(zoom).call(zoom.transform, d3.zoomIdentity);
 	}
 
-	function onResize() {
-		const aspect = canvas.offsetWidth / canvas.offsetHeight;
-		const frustumSize = 1000;
-		camera.left = frustumSize * aspect / -2;
-		camera.right = frustumSize * aspect / 2;
-		camera.top = frustumSize / 2;
-		camera.bottom = frustumSize / -2;
-		camera.updateProjectionMatrix();
-		renderer.setSize(canvas.offsetWidth, canvas.offsetHeight);
+	function draw() {
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+		ctx.save();
+		ctx.translate(transform.x, transform.y);
+		ctx.scale(transform.k, transform.k);
+
+		// Draw links
+		ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+		ctx.lineWidth = 1;
+		links.forEach((link) => {
+			const source = nodes.find((n) => n.id === link.source);
+			const target = nodes.find((n) => n.id === link.target);
+			if (source && target) {
+				ctx.beginPath();
+				ctx.moveTo(source.x!, source.y!);
+				ctx.lineTo(target.x!, target.y!);
+				ctx.stroke();
+			}
+		});
+
+		// Draw nodes
+		ctx.fillStyle = '#4CAF50';
+		nodes.forEach((node) => {
+			ctx.beginPath();
+			ctx.arc(node.x!, node.y!, 3, 0, 2 * Math.PI);
+			ctx.fill();
+		});
+
+		ctx.restore();
 	}
 
-	function onMouseMove(event: MouseEvent) {
-		mouseX = event.clientX;
-		mouseY = event.clientY;
-		
-		if (!mesh) return;
+	function handleMouseMove(event: MouseEvent) {
+		const [x, y] = d3.pointer(event);
+		const inverted = transform.invert([x, y]);
 
-		const raycaster = new THREE.Raycaster();
-		const mouse = new THREE.Vector2(
-			(event.clientX / canvas.width) * 2 - 1,
-			-(event.clientY / canvas.height) * 2 + 1
-		);
-
-		raycaster.setFromCamera(mouse, camera);
-		const intersects = raycaster.intersectObject(mesh);
-
-		hoveredCommit = intersects[0]?.instanceId !== undefined
-			? commits[intersects[0].instanceId!]
-			: null;
+		hoveredCommit =
+			nodes.find((node) => Math.hypot(node.x! - inverted[0], node.y! - inverted[1]) < 5) || null;
 	}
+
+	onDestroy(() => {
+		simulation?.stop();
+		canvas.removeEventListener('mousemove', handleMouseMove);
+	});
 </script>
 
-<canvas bind:this={canvas} on:mousemove={onMouseMove}></canvas>
-{#if hoveredCommit}
-	<div class="tooltip">
-		{hoveredCommit.author}: {hoveredCommit.message}
-	</div>
-{/if}
+<div class="graph-container">
+	<canvas bind:this={canvas} class="graph-canvas"></canvas>
+	{#if loading}
+		<div class="loading">Loading commit graph...</div>
+	{:else}
+		
+		{#if hoveredCommit}
+			<div class="tooltip" style={`left: ${hoveredCommit.x!}px; top: ${hoveredCommit.y!}px`}>
+				<div class="tooltip-header">{hoveredCommit.id.slice(0, 7)}</div>
+				<div class="tooltip-author">{hoveredCommit.author}</div>
+				<div class="tooltip-message">{hoveredCommit.message}</div>
+			</div>
+		{/if}
+	{/if}
+</div>
 
-<Table.Root>
-	<Table.Body>
+<style>
+	.graph-container {
+		position: relative;
+		width: 100%;
+		height: 80vh;
+		background: #1a1a1a;
+		overflow: hidden;
+	}
 
-		{#each commits as commit }
-			<Table.Row>
-				<Table.Cell>{commit.message}</Table.Cell>
-			</Table.Row>
-		{/each}
-	</Table.Body>
-</Table.Root>
+	.graph-canvas {
+		width: 100%;
+		height: 100%;
+		cursor: move;
+	}
+
+	.loading {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		color: white;
+	}
+
+	.tooltip {
+		position: absolute;
+		background: rgba(0, 0, 0, 0.9);
+		color: white;
+		padding: 0.5rem 1rem;
+		border-radius: 4px;
+		pointer-events: none;
+		transform: translate(-50%, -100%);
+		max-width: 300px;
+		font-size: 0.9rem;
+	}
+
+	.tooltip-header {
+		color: #4caf50;
+		font-weight: bold;
+		margin-bottom: 0.3rem;
+	}
+</style>

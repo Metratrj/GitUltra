@@ -63,7 +63,9 @@
 		"@tauri-apps/plugin-global-shortcut": "^2.2.0",
 		"@tauri-apps/plugin-opener": "^2.2.6",
 		"@tauri-apps/plugin-store": "^2.2.0",
+		"@types/d3": "^7.4.3",
 		"@types/three": "^0.174.0",
+		"d3": "^7.9.0",
 		"flatbuffers": "^25.2.10",
 		"three": "^0.174.0"
 	}
