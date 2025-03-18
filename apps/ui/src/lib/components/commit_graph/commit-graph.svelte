@@ -3,7 +3,6 @@
 	import { onDestroy, onMount } from 'svelte';
 	import * as d3 from 'd3';
 	import { topologicalSort } from '@/utils';
-	import { topologicalSort } from '@/utils';
 
 	export let repo_name: string;
 
@@ -32,8 +31,6 @@
 
 	let quadtree: d3.Quadtree<CNode>;
 
-	let quadtree: d3.Quadtree<CNode>;
-
 	onMount(async () => {
 		if (!canvas) {
 			console.error('Canvas element not found');
@@ -52,14 +49,12 @@
 		console.log(resp);
 		if (resp.status != 'ok') return;
 		nodes = topologicalSort(resp.data).map((commit) => ({
-		nodes = topologicalSort(resp.data).map((commit) => ({
 			...commit,
 			id: commit.oid,
 			x: 0,
 			y: 0
 		}));
 
-		links = nodes.flatMap((commit) =>
 		links = nodes.flatMap((commit) =>
 			commit.parents.map((parent) => ({
 				source: commit.oid,
@@ -83,10 +78,6 @@
 		// Setup canvas
 		const width = (canvas.width = canvas.offsetWidth);
 		const height = (canvas.height = canvas.offsetHeight);
-		quadtree = d3
-			.quadtree<CNode>()
-			.x((d) => d.x)
-			.y((d) => d.y);
 		quadtree = d3
 			.quadtree<CNode>()
 			.x((d) => d.x)
@@ -317,12 +308,7 @@
 		// Draw links
 		ctx.strokeStyle = 'rgba(75, 155, 255, 0.8)';
 		ctx.lineWidth = 2;
-
-		const visibleIds = new Set(visibleNodes.map((n) => n.oid));
-		const visibleLinks = links.filter(
-			(link) => visibleIds.has(link.source) || visibleIds.has(link.target)
-		);
-		visibleLinks.forEach((link) => {
+		links.forEach((link) => {
 			const source = nodes.find((n) => n.id === link.source)!;
 			const target = nodes.find((n) => n.id === link.target)!;
 			ctx.beginPath();
