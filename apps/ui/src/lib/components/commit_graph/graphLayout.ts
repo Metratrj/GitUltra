@@ -4,17 +4,35 @@ export class CommitGraphLayout {
 	private nodes: Map<string, { x: number; y: number }> = new Map();
 	constructor(private commits: CommitNode[]) {
 		this.initializePositions();
-		this.simulate(100);
+		this.simulate();
 	}
 
 	private initializePositions() {
-		// Simple linear layout for now
+		let column = 0;
+		const columnMap = new Map<string, number>();
+		
 		this.commits.forEach((commit, index) => {
-			this.nodes.set(commit.oid, { x: 0, y: index * 100 });
+			// Detect merge commits
+			if (commit.parents.length > 1) {
+				column++;
+				columnMap.set(commit.oid, column);
+			}
+			// Carry parent column if exists
+			else if (commit.parents.length === 1) {
+				const parentCol = columnMap.get(commit.parents[0]) || column;
+				column = parentCol;
+			}
+			
+			this.nodes.set(commit.oid, {
+				x: column * 120, // 120px spacing between columns
+				y: index * 60    // 60px vertical spacing
+			});
 		});
 	}
 
-	private 
+	private simulate() {
+		// TODO: Implement force simulation for layout optimization
+	}
 
 	get positions() {
 		return this.nodes;
