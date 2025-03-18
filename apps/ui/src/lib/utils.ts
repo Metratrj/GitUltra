@@ -2,6 +2,7 @@ import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { cubicOut } from "svelte/easing";
 import type { TransitionConfig } from "svelte/transition";
+import type { CommitNode } from "@gitultra/schemas/ts/gitultra/bindings";
 
 export function cn(...inputs: ClassValue[]) {
 	return twMerge(clsx(inputs));
@@ -60,3 +61,23 @@ export const flyAndScale = (
 		easing: cubicOut
 	};
 };
+
+export function topologicalSort(nodes: CommitNode[]): CommitNode[] {
+	const visited = new Set<string>();
+	const sorted: CommitNode[] = [];
+
+	function visit(node: CommitNode) {
+		if (visited.has(node.oid)) return;
+		visited.add(node.oid);
+
+		node.parents.forEach(parentId => {
+			const parent = nodes.find(n => n.oid == parentId);
+			if (parent) visit(parent);
+		});
+	
+		sorted.unshift(node);
+	}
+
+	nodes.slice().reverse().forEach(visit);
+	return sorted;
+}
