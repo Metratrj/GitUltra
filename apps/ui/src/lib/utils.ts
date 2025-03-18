@@ -78,6 +78,6 @@ export function topologicalSort(nodes: CommitNode[]): CommitNode[] {
 		sorted.unshift(node);
 	}
 
-	nodes.slice().reverse().forEach(visit);
+	nodes.slice().forEach(visit);
 	return sorted;
 }
